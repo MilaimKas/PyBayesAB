@@ -193,14 +193,14 @@ class Bays_norm:
                 cm.remove()
             
             # update posetrior
-            m,k,a,b = self.post_parameters(data=np.array(data[0:i+1], dtype="object").flatten())
+            m,k,a,b = self.post_parameters(data=np.concatenate(data[0:i+1]).ravel())
             post = helper.norminvgamma(m,k,a,b)
-            post_pdf = post.pdf(MU, S)
+            post_pts = post.pdf(MU, S)
 
-            anim_contourf = axs.contourf(MU,S, post_pdf, cmap="Blues") 
+            anim_contourf = axs.contourf(MU,S, post_pts, cmap="Blues") 
             anim_contour = axs.contour(MU, S, post_pts, cmap="Blues")
 
-            #return anim_contourf, anim_contour
+            return anim_contourf, anim_contour
 
 
         # call the animator.  blit=True means only re-draw the parts that have changed.
