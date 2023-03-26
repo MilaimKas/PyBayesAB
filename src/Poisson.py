@@ -3,8 +3,8 @@ import numpy as np
 
 from scipy.stats import gamma, poisson, nbinom
 
-import helper
-import plot_functions
+import src.helper as helper
+import src.plot_functions as plot_functions
 
 N_SAMPLE=5000
 N_PTS = 1000

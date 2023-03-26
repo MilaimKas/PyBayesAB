@@ -7,8 +7,8 @@ from scipy.stats import bernoulli
 
 import matplotlib.pyplot as plt
 
-import helper
-import plot_functions
+import src.helper as helper
+import src.plot_functions as plot_functions
 
 N_SAMPLE = 5000
 N_PTS = 1000

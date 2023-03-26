@@ -9,7 +9,7 @@ from scipy.stats import gaussian_kde
 from scipy.interpolate import griddata
 import scipy.ndimage
 
-import helper
+import src.helper as helper
 
 FIGSIZE=(6,4)
 COLORS = ["red", "blue", "green", "orange"]

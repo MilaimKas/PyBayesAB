@@ -9,8 +9,8 @@ import scipy.interpolate as interpolate
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
-import helper
-import plot_functions
+import src.helper as helper
+import src.plot_functions as plot_functions
 
 class Bays_norm:
     def __init__(self, mu_prior=0, kappa_prior=1, alpha_prior=0.5, beta_prior=50):
