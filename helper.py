@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.optimize as optimize
+from scipy import interpolate
 
 from scipy.stats import gamma, norm, gengamma, expon
 from scipy.special import gamma as gamma_func
@@ -28,6 +29,16 @@ def hdi(distribution, level=0.95):
 	upper_limit = lower_limit + width
 
 	return (lower_limit, upper_limit)
+
+
+class KDE:
+	def __init__(self, kde, xi, xf, xn):
+		x = np.linspace(xi, xf, xn)
+		self.kde = kde
+		self.cdf = np.vectorize(lambda p: kde.integrate_box_1d(-np.inf, p))
+		cdf = self.cdf(x)
+		self.ppf= interpolate.interp1d(cdf, x, kind='cubic', bounds_error=False)
+
 
 class gamma_custom:
 	def __init__(self, alpha=10**-3, beta=1):
@@ -154,3 +165,10 @@ class norminvgamma():
 		t3 = (1 / sig**2)**(self.alpha + 1)
 		t4 = expon.pdf((2*self.beta + self.kappa*(self.mu-mu)**2)/(2*sig**2))
 		return (t1/t2)*t3*t4
+	
+def make_range(rvs):
+	min = np.min(rvs)
+	max = np.max(rvs)
+	wid = (max - min)/2
+	para_range = [min-wid, max+wid]
+	return para_range
