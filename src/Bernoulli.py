@@ -135,7 +135,7 @@ class Bays_bernoulli:
         a,b = self.post_parameters(data=data, group=group)
         return beta.rvs(a,b,size=N_sample)
     
-    def make_pdf(self, data=None, group="A", p_range=[0,1], N_pts=N_PTS):
+    def make_pdf(self, data=None, group="A", para_range=[0,1], N_pts=N_PTS):
         """_summary_
 
         Args:
@@ -149,7 +149,7 @@ class Bays_bernoulli:
             _type_: _description_
         """
         a,b = self.post_parameters(data=data, group=group)
-        p_pts = np.linspace(p_range[0], p_range[1], N_pts)
+        p_pts = np.linspace(para_range[0], para_range[1], N_pts)
         return p_pts, beta.pdf(p_pts, a, b)
     
     def make_cum_post_para(self, group="A"):
@@ -175,7 +175,20 @@ class Bays_bernoulli:
             
         return cumsum_alpha, cumsum_beta
 
-    def plot_tot(self, data=None, group="A", n_rvs=N_SAMPLE, p_range=None, n_pts=N_PTS):
+    def plot_tot(self, group="A"):
+        """
+        plot the posterior distribution for the total result
+        Either A or B, both A and B, or their difference
+
+        Args:
+            n_rvs (int, optional): number of random values for the histogram. Defaults to 1000.
+            mu_range (list, optional): [lower, upper] limit for mu. Defaults to None.
+            group (str, optional): can be 'A', 'B', 'diff' or 'AB'
+        """
+        return plot_functions.make_plot_tot(self.make_rvs, self.make_pdf, 
+                                    group, "Bernoulli probabilty")
+    
+    def _plot_tot(self, data=None, group="A", n_rvs=N_SAMPLE, p_range=None, n_pts=N_PTS):
         """
         plot the posterior distribution for the total result
 
@@ -190,7 +203,7 @@ class Bays_bernoulli:
                 rvs = self.make_rvs(group=group, N_sample=n_rvs)
                 if p_range is None:
                     p_range = [np.min(rvs), np.max(rvs)]
-                model_para_pts, post = self.make_pdf(group=group, p_range=p_range)
+                model_para_pts, post = self.make_pdf(group=group, para_range=p_range)
                 fig = plot_functions.plot_tot([rvs], model_para_pts, [post], labels=[group], xlabel="Bernoulli probabilty")
             
             elif group == "diff":
@@ -208,8 +221,8 @@ class Bays_bernoulli:
                 rvs_tmp = np.concatenate((rvs_A, rvs_B))
                 if p_range is None:
                     p_range = [np.min(rvs_tmp), max(rvs_tmp)]
-                model_para_pts, post_A = self.make_pdf(group="A", p_range=p_range)
-                _, post_B = self.make_pdf(group="B", p_range=p_range)
+                model_para_pts, post_A = self.make_pdf(group="A", para_range=p_range)
+                _, post_B = self.make_pdf(group="B", para_range=p_range)
                 fig = plot_functions.plot_tot([rvs_A, rvs_B], model_para_pts, [post_A, post_B],
                                               labels=["A", "B"], 
                                               xlabel="Bernoulli probabilty")    

@@ -435,3 +435,45 @@ def plot_anim_rvs(rvs_list, model_para_range,
     # call the animator.  blit=True means only re-draw the parts that have changed.
     return animation.FuncAnimation(fig, animate,
                             frames=n_exp, interval=interval, blit=False)
+
+
+def make_plot_tot(make_rvs, make_pdf, group, xlabel, n_rvs=N_SAMPLE, para_range=None, n_pts=N_PTS):
+    """
+    plot the posterior distribution for the total result
+
+    Args:
+        n_rvs (int, optional): number of random value for the histogram. Defaults to 1000.
+        prange (list, optional): [lower, upper] limit for p. Defaults to None.
+    """       
+        
+    if (group == "A") or (group == "B"):
+        rvs = make_rvs(group=group, N_sample=n_rvs)
+        if para_range is None:
+            para_range = [np.min(rvs), np.max(rvs)]
+        model_para_pts, post = make_pdf(group=group, para_range=para_range)
+        fig = plot_tot([rvs], model_para_pts, [post], labels=[group], xlabel=xlabel)
+    
+    elif group == "diff":
+        rvs_A = make_rvs(group="A", N_sample=n_rvs) 
+        rvs_B = make_rvs(group="B", N_sample=n_rvs)
+        rvs_diff = rvs_A-rvs_B
+        if para_range is None:
+            para_range = [np.min(rvs_diff), np.max(rvs_diff)]
+        model_para_pts = np.linspace(para_range[0],para_range[1],n_pts)
+        fig = plot_tot([rvs_diff],model_para_pts, labels=["A-B"], xlabel="Difference in "+xlabel)
+    
+    elif group == "AB":
+        rvs_A = make_rvs(group="A", N_sample=n_rvs)
+        rvs_B = make_rvs(group="B", N_sample=n_rvs)
+        rvs_tmp = np.concatenate((rvs_A, rvs_B))
+        if para_range is None:
+            para_range = [np.min(rvs_tmp), max(rvs_tmp)]
+        model_para_pts, post_A = make_pdf(group="A", para_range=para_range)
+        _, post_B = make_pdf(group="B", para_range=para_range)
+        fig = plot_tot([rvs_A, rvs_B], model_para_pts, [post_A, post_B],
+                                        labels=["A", "B"], 
+                                        xlabel=xlabel)    
+    else:
+        raise SyntaxError("group can only be A,B,diff or AB")
+
+    return fig

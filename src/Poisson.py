@@ -92,7 +92,7 @@ class Bays_poisson:
         a,b = self.post_parameters(group=group, data=data)
         return gamma.rvs(a, scale=1/b, size=N_sample)
     
-    def make_pdf(self, data=None, group="A", mu_range=[0,50], N_pts=N_PTS):
+    def make_pdf(self, data=None, group="A", para_range=[0,50], N_pts=N_PTS):
         """_summary_
 
         Args:
@@ -105,7 +105,7 @@ class Bays_poisson:
             _type_: _description_
         """
         a,b = self.post_parameters(group=group, data=data)
-        mu_pts = np.linspace(mu_range[0], mu_range[1], N_pts)
+        mu_pts = np.linspace(para_range[0], para_range[1], N_pts)
         return mu_pts, gamma.pdf(mu_pts, a, scale=1/b)
 
     def make_cum_post_para(self, group="A"):
@@ -134,7 +134,20 @@ class Bays_poisson:
 
         return a_cum, b_cum
     
-    def plot_tot(self, n_rvs=N_SAMPLE, mu_range=None, group="A", n_pts=N_PTS, data=None):
+    def plot_tot(self, group="A"):
+        """
+        plot the posterior distribution for the total result
+        Either A or B, both A and B, or their difference
+
+        Args:
+            n_rvs (int, optional): number of random values for the histogram. Defaults to 1000.
+            mu_range (list, optional): [lower, upper] limit for mu. Defaults to None.
+            group (str, optional): can be 'A', 'B', 'diff' or 'AB'
+        """
+        return plot_functions.make_plot_tot(self.make_rvs, self.make_pdf, 
+                                    group, "mean number of occurences")
+    
+    def _plot_tot(self, n_rvs=N_SAMPLE, mu_range=None, group="A", n_pts=N_PTS, data=None):
         """
         plot the posterior distribution for the total result
 
@@ -149,13 +162,13 @@ class Bays_poisson:
                 rvs = self.make_rvs(group=group, N_sample=n_rvs)
                 if mu_range is None:
                     mu_range = [np.min(rvs), np.max(rvs)]
-                model_para_pts, post = self.make_pdf(group=group, mu_range=mu_range)
+                model_para_pts, post = self.make_pdf(group=group, para_range=mu_range)
                 fig = plot_functions.plot_tot([rvs], model_para_pts, [post], 
                                               labels=[group], xlabel="Mean number of occurences")
             
             elif group == "diff":
                 
-                rvs_A = self.make_rvs(group="A", N_sample=n_rvs) 
+                rvs_A = self.make_rvs(group="A", N_sample=n_rvs)
                 rvs_B = self.make_rvs(group="B", N_sample=n_rvs)
                 rvs_diff = rvs_A-rvs_B
                 if mu_range is None:
@@ -170,8 +183,8 @@ class Bays_poisson:
                 if mu_range is None:
                     rvs_tmp = np.concatenate((rvs_A, rvs_B))
                     mu_range = [np.min(rvs_tmp), np.max(rvs_tmp)]
-                model_para_pts, post_A = self.make_pdf(group="A", mu_range=mu_range)
-                _, post_B = self.make_pdf(group="B", mu_range=mu_range)
+                model_para_pts, post_A = self.make_pdf(group="A", para_range=mu_range)
+                _, post_B = self.make_pdf(group="B", para_range=mu_range)
                 fig = plot_functions.plot_tot([rvs_A, rvs_B], model_para_pts, [post_A, post_B],
                                               labels=["A", "B"], 
                                               xlabel="Mean number of occurences")    
