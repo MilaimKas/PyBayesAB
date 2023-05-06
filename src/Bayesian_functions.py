@@ -33,7 +33,7 @@ def rope(rvs, interval):
     """
     return 100*(np.mean((rvs<max(interval)) & rvs > min(interval))) 
 
-def rope_descision():
+def rope_descision(rvs, interval, level=95):
     return
 
 def map():

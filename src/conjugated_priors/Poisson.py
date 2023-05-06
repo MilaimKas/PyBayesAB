@@ -147,54 +147,6 @@ class Bays_poisson:
         return plot_functions.make_plot_tot(self.make_rvs, self.make_pdf, 
                                     group, "mean number of occurences")
     
-    def _plot_tot(self, n_rvs=N_SAMPLE, mu_range=None, group="A", n_pts=N_PTS, data=None):
-        """
-        plot the posterior distribution for the total result
-
-        Args:
-            n_rvs (int, optional): number of random values for the histogram. Defaults to 1000.
-            mu_range (list, optional): [lower, upper] limit for mu. Defaults to None.
-        """
-        
-        if data is None:
-            
-            if (group == "A") or (group == "B"):
-                rvs = self.make_rvs(group=group, N_sample=n_rvs)
-                if mu_range is None:
-                    mu_range = [np.min(rvs), np.max(rvs)]
-                model_para_pts, post = self.make_pdf(group=group, para_range=mu_range)
-                fig = plot_functions.plot_tot([rvs], model_para_pts, [post], 
-                                              labels=[group], xlabel="Mean number of occurences")
-            
-            elif group == "diff":
-                
-                rvs_A = self.make_rvs(group="A", N_sample=n_rvs)
-                rvs_B = self.make_rvs(group="B", N_sample=n_rvs)
-                rvs_diff = rvs_A-rvs_B
-                if mu_range is None:
-                    mu_range = [np.min(rvs_diff), np.max(rvs_diff)]
-                model_para_pts = np.linspace(mu_range[0], mu_range[1], n_pts)
-                fig = plot_functions.plot_tot([rvs_diff],model_para_pts, 
-                                              labels=["A-B"], xlabel="Difference mean number of occurences")
-            
-            elif group == "AB":
-                rvs_A = self.make_rvs(group="A", N_sample=n_rvs)
-                rvs_B = self.make_rvs(group="B", N_sample=n_rvs)
-                if mu_range is None:
-                    rvs_tmp = np.concatenate((rvs_A, rvs_B))
-                    mu_range = [np.min(rvs_tmp), np.max(rvs_tmp)]
-                model_para_pts, post_A = self.make_pdf(group="A", para_range=mu_range)
-                _, post_B = self.make_pdf(group="B", para_range=mu_range)
-                fig = plot_functions.plot_tot([rvs_A, rvs_B], model_para_pts, [post_A, post_B],
-                                              labels=["A", "B"], 
-                                              xlabel="Mean number of occurences")    
-            else:
-                raise SyntaxError("group can only be A,B,diff or AB")
-        
-        else:
-            raise NotImplementedError
-
-        return fig
 
     def plot_exp(self, type="1D", n_pdf=N_PTS, n_rvs=N_SAMPLE, mu_range=None, group="A"):
         """
