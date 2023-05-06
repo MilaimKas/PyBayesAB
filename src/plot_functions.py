@@ -439,7 +439,7 @@ def plot_anim_rvs(rvs_list, model_para_range,
 
 def make_plot_tot(make_rvs, make_pdf, group, xlabel, n_rvs=N_SAMPLE, para_range=None, n_pts=N_PTS):
     """
-    plot the posterior distribution for the total result
+    plot the posterior distribution for the total result for all conjugated prior classes
 
     Args:
         n_rvs (int, optional): number of random value for the histogram. Defaults to 1000.
