@@ -40,14 +40,14 @@ class KDE:
 		self.ppf= interpolate.interp1d(cdf, x, kind='cubic', bounds_error=False)
 
 
-class gamma_custom:
-	def __init__(self, alpha=10**-3, beta=1):
+class GammaCustom:
+	def __init__(self, a=10**-3, b=1):
 		"""
 		wrapper for scipy.stats.gamma
 		for alpha, beta parameters instead of a and scale
 		"""
-		self.alpha = alpha
-		self.beta = beta
+		self.alpha = a
+		self.beta = b
 
 	def pdf(self, model_para_pts, alpha=None, beta=None):
 		if alpha is None:
@@ -56,12 +56,12 @@ class gamma_custom:
 			beta = self.beta
 		return gamma.pdf(model_para_pts, alpha, scale=1/beta)
 
-	def rvs(self, n_rvs, alpha=None, beta=None):
+	def rvs(self, size=None, alpha=None, beta=None):
 		if alpha is None:
 			alpha = self.alpha
 		if beta is None:
 			beta = self.beta
-		return gamma.rvs(alpha, scale=1/beta, size=n_rvs)
+		return gamma.rvs(alpha, scale=1/beta, size=size)
 
 	def ppf(self, model_para_pts, alpha=None, beta=None):
 		if alpha is None:
@@ -78,8 +78,8 @@ class gamma_custom:
 		return gamma.cdf(model_para_pts, alpha, scale=1/beta)
 
 
-class normalgamma:
-	def __init__(self, mu=0, kappa=1, alpha=0.5, beta=50):
+class NormalGamma:
+	def __init__(self, mu=0, kappa=1, a=0.5, b=50):
 		"""
 
 		class for the gamma-normal distribution 
@@ -89,14 +89,14 @@ class normalgamma:
 		Args:
 		mu (_type_): location parameter
 		kappa (float): sample size relative to the uncertainity in spread. Defaults to 1 (for non informative case)
-		alpha (float): parameter of the Gamma component. Defaults to 1 (for non informative case)
-		beta (float): parameter of the Gamma component. Defaults to 1 (for non informative case).
+		a (float): parameter of the Gamma component. Defaults to 1 (for non informative case)
+		b (float): parameter of the Gamma component. Defaults to 1 (for non informative case).
 		"""
 
 		self.mu = mu
 		self.kappa = kappa
-		self.alpha = alpha
-		self.beta = beta
+		self.alpha = a
+		self.beta = b
 
 	def rvs(self, size=5000):
 		"""
@@ -128,7 +128,7 @@ class normalgamma:
 
 		return t1*t2*t3*t4
 
-class norminvgamma():
+class NormInvGamma():
 	"""A normal inverse gamma random variable.
 	The mu (``mu``) keyword specifies the parmaeter mu.
 	Notes
@@ -147,11 +147,11 @@ class norminvgamma():
 	ref: https://deebuls.github.io/devblog/probability/python/plotting/matplotlib/2020/05/19/probability-normalinversegamma.html
 	"""
 
-	def __init__(self, mu, kappa, alpha, beta):
+	def __init__(self, mu, kappa, a, b):
 
 		self.mu = mu
-		self.alpha = alpha
-		self.beta = beta
+		self.alpha = a
+		self.beta = b
 		self.kappa = kappa
 
 	def rvs(self, size=1000):

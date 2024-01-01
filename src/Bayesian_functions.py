@@ -1,3 +1,7 @@
+"""
+ Functions to calculate several Bayesian metrics from the posterior distribution 
+"""
+
 import numpy as np
 import helper
 
@@ -33,10 +37,21 @@ def rope(rvs, interval):
     """
     return 100*(np.mean((rvs<max(interval)) & rvs > min(interval))) 
 
-def rope_descision(rvs, interval, level=95):
+def rope_decision(rvs, interval, level=95):
+    """_summary_
+
+    Args:
+        rvs (_type_): _description_
+        interval (_type_): _description_
+        level (int, optional): _description_. Defaults to 95.
+    """
+
+    hdi_low, hdi_up = hdi(rvs, level=level)
+    rope_low, rope_up = rope(rvs, interval)
+
     return
 
-def map():
+def MAP():
     return
 
 def bayesian_factor():

@@ -10,9 +10,10 @@ from matplotlib import animation
 
 import src.helper as helper
 
-class Bays_exp:
+class BaysExponential:
+
     def __init__(self) -> None:
-        pass
+        raise NotImplementedError()
 
     def add_experiment(self, pts):
         return

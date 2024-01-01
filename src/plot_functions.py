@@ -17,15 +17,17 @@ N_BINS = 20
 N_SAMPLE = 5000
 N_PTS = 2000
 
+
 def plot_tot(rvs, model_para_pts, pdf=None, xlabel="Model parameter", labels=[None]):
     """
-    Plot the probabilty density and histogram for a posterior distribution
+    Plot the probability density and histogram for a posterior distribution
 
     Args:
         rvs (np.array): array with the random values for the histogramm.
         pdf (dict): "model_para_pts" - array with axis 0 the parameter value and axis 1 the probability density.
         xlabel (strin, optional): label for the x axis (model parameter)
     """
+    
     if pdf is None:
         pdf = [None]*len(rvs)
 
@@ -43,7 +45,7 @@ def plot_tot(rvs, model_para_pts, pdf=None, xlabel="Model parameter", labels=[No
             plt.plot(model_para_pts, kde(model_para_pts), color=c)
 
     plt.xlabel(xlabel)
-    plt.ylabel("Probabilty density")
+    plt.ylabel("Probability density")
     plt.legend()
     
     return fig
@@ -103,12 +105,12 @@ def plot_cum_post_2D_pdf(post, zip_post_para, labels, exp, model_para, post_para
     
     plt.xlabel("Experiments")
     plt.ylabel(post_para_label)
-    plt.colorbar(label="Probabilty density")
+    plt.colorbar(label="Probability density")
     #plt.legend()
 
     return fig
 
-def plot_cum_post_2D_rvs(hist_diff, range, ylabel="p(A)-p(B) (%)"):
+def plot_cum_post_2D_rvs(hist_diff, range, ylabel="p(A)-p(B)"):
     """_summary_
 
     Args:
@@ -134,7 +136,7 @@ def plot_cum_post_2D_rvs(hist_diff, range, ylabel="p(A)-p(B) (%)"):
     plt.pcolormesh(X,Y, hist_diff.transpose(), cmap="viridis", shading='auto')
     plt.xlabel("Experiments")
     plt.ylabel(ylabel)
-    plt.colorbar(label="Probabilty density")
+    plt.colorbar(label="Probability density")
 
     return fig  
 
@@ -154,21 +156,21 @@ def plot_cum_post_1D_pdf(post, zip_post_para, labels, exp, model_para, post_para
     
     fig = plt.figure(figsize=FIGSIZE)
 
-    n_exp = len(exp)
-    cmaps = [plt.cm.Reds(np.linspace(0.1,1,n_exp)), 
-             plt.cm.Blues(np.linspace(0.1,1,n_exp)),]
+    N_exp = len(exp)
+    cmaps = [plt.cm.Reds(np.linspace(0.1, 1, N_exp)), 
+             plt.cm.Blues(np.linspace(0.1, 1, N_exp)),]
 
     for z, cmap, lab in zip(zip_post_para, cmaps, labels):
         for i, post_para in enumerate(z):
             Post = post(*post_para)
-            if i == n_exp-1:
+            if i == N_exp-1:
                 plt.plot(model_para, Post.pdf(model_para), color=cmap[i], label=lab)
             else:
                 plt.plot(model_para, Post.pdf(model_para), color=cmap[i])
 
     plt.legend()
     plt.xlabel(post_para_label)
-    plt.ylabel("Probabilty density")
+    plt.ylabel("Probability density")
     
     return fig
 
@@ -198,7 +200,7 @@ def plot_cum_post_1D_rvs(rvs, exp, model_para_pts, labels, post_para_label="Para
             plt.plot(model_para_pts, kde(model_para_pts), color=cmap[i])
 
     plt.xlabel(post_para_label)
-    plt.ylabel("Probabilty density")
+    plt.ylabel("Probability density")
 
     return fig
 
@@ -475,5 +477,121 @@ def make_plot_tot(make_rvs, make_pdf, group, xlabel, n_rvs=N_SAMPLE, para_range=
                                         xlabel=xlabel)    
     else:
         raise SyntaxError("group can only be A,B,diff or AB")
+
+    return fig
+
+def plot_helper(make_rvs, make_cum_post_para, conjugated_prior, 
+                group, type, N_exp, 
+                n_pdf, n_rvs,
+                label1, label2,
+                xrange=None):
+    """
+    Wrapper function for the different plots
+
+    Args:
+        make_rvs (_type_): _description_
+        make_cum_post_para (_type_): _description_
+        conjugated_prior (_type_): _description_
+        group (_type_): _description_
+        N_exp (_type_): _description_
+        n_pdf (_type_): _description_
+        n_rvs (_type_): _description_
+        label1 (_type_): _description_
+        label2 (_type_): _description_
+        xrange (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+
+    experiment_cnt = np.arange(1, N_exp+1)
+
+    # plot posterior for one group
+    if (group == "A") or (group == "B"):
+
+        # values for x axis
+        # if range of probabilities is not given, take it from the rvs 
+        if xrange is None:
+            rvs = make_rvs(group=group)
+            xrange = [np.min(rvs), np.max(rvs)] 
+        x_pts = np.linspace(xrange[0],xrange[1],n_pdf)
+
+        # make a list of cumulative 
+        zip_post_para = [zip(*make_cum_post_para(group=group))]
+        labels = [group]
+
+        # 2D map plot
+        if type == "2D":
+            fig = plot_cum_post_2D_pdf(conjugated_prior, zip_post_para, 
+                                                    labels, 
+                                                    experiment_cnt, x_pts, 
+                                                    post_para_label=label1)
+        
+        # 1D plot
+        elif type == "1D":
+            fig = plot_cum_post_1D_pdf(conjugated_prior, zip_post_para, 
+                                                        labels, 
+                                                        experiment_cnt, x_pts, 
+                                                        post_para_label=label1)
+    
+    # plot posterior for both groups
+    elif group == "AB":
+
+        zip_post_para = [zip(*make_cum_post_para(group="A")), 
+                            zip(*make_cum_post_para(group="B"))]
+        labels = ["A", "B"]
+
+        if xrange is None:
+            rvs = np.concatenate((make_rvs(), make_rvs(group="B")))
+            xrange = [np.min(rvs), np.max(rvs)]
+        x_pts = np.linspace(xrange[0],xrange[1],n_pdf)
+
+        if type == "2D":
+            fig = plot_cum_post_2D_pdf(conjugated_prior, zip_post_para, 
+                                                    labels, 
+                                                    experiment_cnt, x_pts, 
+                                                    post_para_label=label1)
+        elif type == "1D":
+            fig = plot_cum_post_1D_pdf(conjugated_prior, zip_post_para, 
+                                                    labels, 
+                                                    experiment_cnt, x_pts, 
+                                                    post_para_label=label1)
+    
+    # plot posterior for the difference
+    elif group == "diff":
+
+        # list of parameters for the gamma function
+        A_a, A_b = make_cum_post_para(group="A")
+        B_a, B_b = make_cum_post_para(group="B")
+        # rvs for the differences after the first "experiment"
+        rvs_diff = conjugated_prior(a=A_a[0], b=A_b[0]).rvs(size=n_rvs)\
+                    -conjugated_prior(a=B_a[0], b=B_b[0]).rvs(size=n_rvs)
+        # x range
+        if xrange is None:
+            xrange = [np.min(rvs_diff), max(rvs_diff)]
+        x_pts = np.linspace(xrange[0],xrange[1],n_pdf)
+
+        # build list of histogram
+        hist_list = []
+        rvs_list = []
+        for aa,ab,ba,bb in zip(A_a, A_b, B_a, B_b):
+            rvs = conjugated_prior(a=aa, b=ab).rvs(size=n_rvs)\
+                    -conjugated_prior(a=ba, b=bb).rvs(size=n_rvs)
+            hist = np.histogram(rvs, bins=N_BINS, range=xrange, density=True)[0]
+            hist_list.append(hist)
+            rvs_list.append(rvs)
+
+        if type == "2D":
+            hist_arr = np.array(hist_list)
+            fig = plot_cum_post_2D_rvs(hist_arr, xrange,
+                                        ylabel=r"${}$(A)-${}$(B)".format(label2, label2))
+            
+        elif type == "1D":
+            fig = plot_cum_post_1D_rvs([rvs_list], experiment_cnt, 
+                                        model_para_pts=x_pts, labels=["A-B"],
+                                        post_para_label="Difference of "+label1)
+        
+    else:
+        raise ValueError("group must be either 'A', 'B', 'diff' or 'AB'")
 
     return fig

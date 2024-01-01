@@ -3,12 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "Bayeian_ABtest_package_Milaim_Kas"
+name = "PyBayesAB"
 version = "0.0.1"
 authors = [
   { name="Milaim Kas", email="milaim.kas@gmail.com" },
 ]
-description = "Package for Bayesian analysis of AB test and data with animation and plots"
+description = "Package for Bayesian analysis of AB test with animation and plots"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [

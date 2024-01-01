@@ -8,9 +8,9 @@ import src.plot_functions as plot_functions
 
 N_SAMPLE=5000
 N_PTS = 1000
-N_BINS = 20
+N_BINS = 40
 
-class Bays_poisson:
+class BaysPoisson:
     def __init__(self, prior_a=1, prior_b=1) -> None:
         """
         Class for:
@@ -20,7 +20,7 @@ class Bays_poisson:
         Contains ploting and animation function
         """
 
-        self.data = []
+        self.dataA = []
         self.dataB = []
 
         self.prior_a = prior_a
@@ -34,9 +34,11 @@ class Bays_poisson:
             n_events (int): number of occurences or events for one interval
         """
         if group == "A":
-            self.data.append([n_events])
+            self.dataA.append([n_events])
         elif group == "B":
-            self.data.append([n_events])
+            self.dataB.append([n_events])
+        else:
+            raise ValueError("Group must be either 'A' or 'B'")
     
     def add_rand_experiment(self,n,mu, group="A"):
         """
@@ -45,11 +47,11 @@ class Bays_poisson:
 
         Args:
             n (in): number of intervals
-            mu (float): mean number of occurences
+            mu (float): Poisson mean
         """
         n_events = poisson.rvs(mu, size=n)
         if group == "A":
-            self.data.extend(n_events)
+            self.dataA.extend(n_events)
         elif group == "B":
             self.dataB.extend(n_events)
     
@@ -70,16 +72,19 @@ class Bays_poisson:
         """
         if data is None:
             if group == "A":
-                data = self.data
+                data = self.dataA
             elif group == "B":
                 data = self.dataB
+            else:
+                raise ValueError("Group must be either 'A' or 'B'")
         a = sum(data)+self.prior_a
         b = len(data)+self.prior_b
 
         return a,b
 
     def make_rvs(self, data=None, group="A", N_sample=N_SAMPLE):
-        """_summary_
+        """
+        Return a array of random value samples from a gamma distribution.
 
         Args:
             data (_type_, optional): _description_. Defaults to None.
@@ -89,11 +94,19 @@ class Bays_poisson:
         Returns:
             _type_: _description_
         """
+        if data is None:
+            if group == "A":
+                data = self.dataA
+            elif group == "B":
+                data = self.dataB
+            else:
+                raise ValueError("group must be either 'A' or 'B'")
         a,b = self.post_parameters(group=group, data=data)
         return gamma.rvs(a, scale=1/b, size=N_sample)
     
     def make_pdf(self, data=None, group="A", para_range=[0,50], N_pts=N_PTS):
-        """_summary_
+        """
+        Return N_pts values of the gamma posterior for the given mu range.
 
         Args:
             data (_type_, optional): _description_. Defaults to None.
@@ -102,13 +115,20 @@ class Bays_poisson:
             N_pts (_type_, optional): _description_. Defaults to N_PTS.
 
         Returns:
-            _type_: _description_
+            np.array, np.array: x values, y values
         """
+        if data is None:
+            if group == "A":
+                data = self.dataA
+            elif group == "B":
+                data = self.dataB
+            else:
+                raise ValueError("group must be either 'A' or 'B'")
         a,b = self.post_parameters(group=group, data=data)
         mu_pts = np.linspace(para_range[0], para_range[1], N_pts)
         return mu_pts, gamma.pdf(mu_pts, a, scale=1/b)
 
-    def make_cum_post_para(self, group="A"):
+    def make_cum_post_para(self, group="A", data=None):
         """_summary_
 
         Args:
@@ -118,15 +138,17 @@ class Bays_poisson:
             _type_: _description_
         """
         
-        if group == "A":
-            data = self.data
-        elif group == "B":
-            data = self.dataB
+        if data is None:
+            if group == "A":
+                data = self.dataA
+            elif group == "B":
+                data = self.dataB
+            else:
+                raise ValueError("group must be either 'A' or 'B'")
+        else:
+            data = np.array(data, dtype="object")
 
-        data.insert(0, self.prior_a)
-        data = np.array(data, dtype="object")
-
-        # cumulative events
+        # cumulative alpha and beta value
         a_cum = np.cumsum(data)
         b_cum = np.zeros(len(data)+1)
         b_cum[0] = self.prior_b
@@ -145,7 +167,7 @@ class Bays_poisson:
             group (str, optional): can be 'A', 'B', 'diff' or 'AB'
         """
         return plot_functions.make_plot_tot(self.make_rvs, self.make_pdf, 
-                                    group, "mean number of occurences")
+                                    group, "Poisson mean")
     
 
     def plot_exp(self, type="1D", n_pdf=N_PTS, n_rvs=N_SAMPLE, mu_range=None, group="A"):
@@ -153,81 +175,24 @@ class Bays_poisson:
         plot "cumulative" posteriors
 
         Args:
-            type (str, optional): one dimensional plot with x=p and y=pdf 
-                                    or 2 dimensional plot with x=exp and y=p_range and z=pdf. 
+            type (str, optional): one dimensional ("1D") plot with x=p and y=pdf 
+                                    or 2 dimensional ("2D) plot with x=exp and y=p_range and z=pdf. 
                                     Defaults to "1D".
             n_pdf (int, optional): Number of points on the x axis. Defaults to 1000.
             mu_range (list, optional): [lower, upper] limit for mu. Defaults to None.
 
             """
             
-        gamma_post = helper.gamma_custom
+        gamma_post = helper.GammaCustom
 
-        n_exp = len(self.data)+1
-        exp = np.arange(1, n_exp+1)
+        N_exp = len(self.dataA)
 
-        if (group == "A") or (group == "B"):
-            if mu_range is None:
-                rvs = self.make_rvs(group=group)
-                mu_range = helper.make_range(rvs)
-            mu_pts = np.linspace(mu_range[0], mu_range[1], n_pdf)
-            zip_post_para = [zip(*self.make_cum_post_para(group=group))]
-            labels = [group]
-            if type == "2D":
-                fig = plot_functions.plot_cum_post_2D_pdf(gamma_post, zip_post_para, labels, 
-                                        exp, mu_pts, 
-                                        post_para_label="Mean number of occurences")
-            elif type == "1D":
-                fig = plot_functions.plot_cum_post_1D_pdf(gamma_post, zip_post_para, labels, 
-                                                          exp, mu_pts, 
-                                                          post_para_label="Mean number of occurences")
-                
-        elif group == "AB":
-            zip_post_para = [zip(*self.make_cum_post_para(group="A")), 
-                                zip(*self.make_cum_post_para(group="B"))]
-            if mu_range is None:
-                rvs = np.concatenate((self.make_rvs(), self.make_rvs(group="B")))
-                mu_range = helper.make_range(rvs)
-            mu_pts = np.linspace(mu_range[0], mu_range[1], n_pdf)
-            labels = ["A", "B"]
-            if type == "2D":
-                fig = plot_functions.plot_cum_post_2D_pdf(gamma_post, zip_post_para, labels, 
-                                        exp, mu_pts, 
-                                        post_para_label="Mean number of occurences")
-            elif type == "1D":
-                fig = plot_functions.plot_cum_post_1D_pdf(gamma_post, zip_post_para, labels, 
-                                        exp, mu_pts, 
-                                        post_para_label="Mean number of occurences")
-                
-        elif group == "diff":
-            A_a, A_b = self.make_cum_post_para(group="A")
-            B_a, B_b = self.make_cum_post_para(group="B")
-            rvs_diff = self.make_rvs()-self.make_rvs(group="B")
-            range = helper.make_range(rvs_diff)
-            if mu_range is None:
-                mu_range = range
-            mu_pts = np.linspace(mu_range[0], mu_range[1], n_pdf)
-            hist_list = []
-            rvs_list = []
-            for aa,ab,ba,bb in zip(A_a, A_b, B_a, B_b):
-                rvs = gamma_post(alpha=aa, beta=ab).rvs(n_rvs)-gamma_post(alpha=ba, beta=bb).rvs(n_rvs)
-                hist = np.histogram(rvs, bins=N_BINS, range=range, density=True)[0]
-                hist_list.append(hist)
-                rvs_list.append(rvs)
-
-            if type == "2D":
-                hist_arr = np.array(hist_list)
-                fig = plot_functions.plot_cum_post_2D_rvs(hist_arr, range,
-                                                          ylabel="mu(A)-mu(B)")
-            elif type == "1D":
-                fig = plot_functions.plot_cum_post_1D_rvs([rvs_list], exp, 
-                                                          model_para_pts=mu_pts, labels=["A-B"],
-                                                          post_para_label="Difference of mean number of occurences")
-        else:
-            raise NotImplementedError
+        return plot_functions.plot_helper(self.make_rvs, self.make_cum_post_para, gamma_post, 
+                group, type, N_exp, 
+                n_pdf, n_rvs,
+                "Poisson mean", "\mu",
+                xrange=mu_range)
         
-        return fig
-
     def plot_anim(self, mu_range=None, n_pdf=N_PTS, n_rvs=N_SAMPLE, interval=None, 
                   list_hdi=[95,90,80,60], group="A"):
         """
@@ -243,22 +208,22 @@ class Bays_poisson:
             pyplot.animate.Funcanimation
         """
 
-        gamma_post = helper.gamma_custom
+        gamma_post = helper.GammaCustom
     
         if (group == "A") or (group == "B"):
             post_para = [(a,b) for a,b in zip(*self.make_cum_post_para(group=group))]
             if mu_range is None:
-                rvs = self.make_rvs(group=group)
+                rvs = self.make_rvs(group=group, N_sample=n_rvs)
                 mu_range = helper.make_range(rvs)
             return plot_functions.plot_anim_pdf(gamma_post, post_para, mu_range, 
-                model_para_label="Mean number of occurences", 
-                list_hdi=list_hdi, n_pdf=n_pdf, interval=interval)
+                                                model_para_label="Poisson mean", 
+                                                list_hdi=list_hdi, n_pdf=n_pdf, interval=interval)
 
         elif group == "diff":
             A_a, A_b = self.make_cum_post_para(group="A")
             B_a, B_b = self.make_cum_post_para(group="B")
             rvs_list = []
-            rvs_diff = self.make_rvs()-self.make_rvs(group="B")
+            rvs_diff = self.make_rvs()-self.make_rvs(group="B", N_sample=n_rvs)
             if mu_range is None:
                 mu_range = helper.make_range(rvs_diff)
             for aa,ab,ba,bb in zip(A_a, A_b, B_a, B_b):

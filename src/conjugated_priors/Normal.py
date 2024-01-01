@@ -12,9 +12,9 @@ from matplotlib import animation
 import src.helper as helper
 import src.plot_functions as plot_functions
 
-class Bays_norm_known_mean:
+class BaysNormKnownMean:
     def __init__(self) -> None:
-        pass
+        raise NotImplementedError()
 
     def add_experiment(self, pts):
         return
@@ -38,9 +38,9 @@ class Bays_norm_known_mean:
         return
 
 
-class Bays_norm_known_sig:
+class BaysNormKnownSig:
     def __init__(self) -> None:
-        pass
+        raise NotImplementedError()
 
     def add_experiment(self, pts):
         return
@@ -64,7 +64,7 @@ class Bays_norm_known_sig:
         return
     
 
-class Bays_norm:
+class BaysNormal:
     def __init__(self, mu_prior=0, kappa_prior=1, alpha_prior=0.5, beta_prior=50):
         """
         Class for:
@@ -110,7 +110,7 @@ class Bays_norm:
 
     def post_pred(self, data=None):
         """
-        returns the posterior predictive distribution which gives the probabilty for the next observation
+        returns the posterior predictive distribution which gives the probability for the next observation
         p(x|X) where x = new observation and X = all data collected so far.
 
         Posterior predictive distribution is the Student t distribution with dof 2*alpha

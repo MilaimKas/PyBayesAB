@@ -12,17 +12,17 @@ import src.plot_functions as plot_functions
 
 N_SAMPLE = 5000
 N_PTS = 1000
-N_BINS = 20
+N_BINS = 40
 
 
-class Bays_bernoulli:
+class BaysBernoulli:
     def __init__(self, prior_type='Bayes-Laplace'):
         '''
         Class for:
         - likelihood = Bernoulli
         - prior and posterior = Beta
 
-        Contains ploting and animation function
+        Contains plotting and animation function
         '''
 
         # Define prior
@@ -56,8 +56,8 @@ class Bays_bernoulli:
         #   -> total result: 3 hits and 10 fails
 
         # group A
-        self.data = []
-        self.data.append(self.prior)
+        self.dataA = []
+        self.dataA.append(self.prior)
 
         # group B (for AB test)
         self.dataB = []
@@ -87,13 +87,13 @@ class Bays_bernoulli:
         """
         hits = np.count_nonzero(bernoulli.rvs(p, size=n))
         if group == "A":
-            self.data.append([hits,n-hits])
+            self.dataA.append([hits,n-hits])
         elif group == "B":
             self.dataB.append([hits,n-hits])
 
     def post_pred(self, data=None, group="A"):
         """
-        returns the probabilty that the next data points will be a hit
+        returns the probability that the next data points will be a hit
 
         Returns:
             float: posterior predictive for a hits
@@ -111,7 +111,7 @@ class Bays_bernoulli:
 
         if data is None:
             if group == "A":
-                data = self.data
+                data = self.dataA
             elif group == "B":
                 data = self.dataB
 
@@ -163,7 +163,7 @@ class Bays_bernoulli:
         """
         
         if group == "A":
-            data = self.data
+            data = self.dataA
         elif group == "B":
             data = self.dataB
 
@@ -186,7 +186,7 @@ class Bays_bernoulli:
             group (str, optional): can be 'A', 'B', 'diff' or 'AB'
         """
         return plot_functions.make_plot_tot(self.make_rvs, self.make_pdf, 
-                                    group, "Bernoulli probabilty")
+                                    group, "Bernoulli probability")
 
     
     def plot_exp(self, group="A", type="1D", n_pdf=N_PTS, p_range=None, n_rvs=N_SAMPLE):
@@ -201,65 +201,13 @@ class Bays_bernoulli:
             p_range (list, optional): lower, upper] limit for p. Defaults to None.
         """
 
-        exp = np.arange(1, len(self.data)+1)
+        N_exp = len(self.dataA)
 
-        if (group == "A") or (group == "B"):
-            if p_range is None:
-                rvs = self.make_rvs(group=group)
-                p_range = [np.min(rvs), np.max(rvs)]
-            p_pts = np.linspace(p_range[0],p_range[1],n_pdf)
-            zip_post_para = [zip(*self.make_cum_post_para(group=group))]
-            labels = [group]
-            if type == "2D":
-                fig = plot_functions.plot_cum_post_2D_pdf(beta, zip_post_para, labels, 
-                                        exp, p_pts, 
-                                        post_para_label="Bernoulli probabilty")
-            elif type == "1D":
-                fig = plot_functions.plot_cum_post_1D_pdf(beta, zip_post_para, labels, 
-                                                          exp, p_pts, 
-                                                          post_para_label="Bernoulli probabilty")
-                
-        elif group == "AB":
-            zip_post_para = [zip(*self.make_cum_post_para(group="A")), 
-                                zip(*self.make_cum_post_para(group="B"))]
-            labels = ["A", "B"]
-            if p_range is None:
-                rvs = np.concatenate((self.make_rvs(),self.make_rvs(group="B")))
-                p_range = [np.min(rvs), np.max(rvs)]
-            p_pts = np.linspace(p_range[0],p_range[1],n_pdf)
-            if type == "2D":
-                fig = plot_functions.plot_cum_post_2D_pdf(beta, zip_post_para, labels, 
-                                        exp, p_pts, 
-                                        post_para_label="Bernoulli probabilty")
-            elif type == "1D":
-                fig = plot_functions.plot_cum_post_1D_pdf(beta, zip_post_para, labels, 
-                                        exp, p_pts, 
-                                        post_para_label="Bernoulli probabilty")
-                
-        elif group == "diff":
-            A_a, A_b = self.make_cum_post_para(group="A")
-            B_a, B_b = self.make_cum_post_para(group="B")
-            rvs_diff = beta(a=A_a[0], b=A_b[0]).rvs(size=n_rvs)-beta(a=B_a[0], b=B_b[0]).rvs(size=n_rvs)
-            if p_range is None:
-                p_range = [np.min(rvs_diff), max(rvs_diff)]
-            p_pts = np.linspace(p_range[0],p_range[1],n_pdf)
-            hist_list = []
-            rvs_list = []
-            for aa,ab,ba,bb in zip(A_a, A_b, B_a, B_b):
-                rvs = beta(a=aa, b=ab).rvs(size=n_rvs)-beta(a=ba, b=bb).rvs(size=n_rvs)
-                hist = np.histogram(rvs, bins=N_BINS, range=p_range, density=True)[0]
-                hist_list.append(hist)
-                rvs_list.append(rvs)
-
-            if type == "2D":
-                hist_arr = np.array(hist_list)
-                fig = plot_functions.plot_cum_post_2D_rvs(hist_arr, p_range)
-            elif type == "1D":
-                fig = plot_functions.plot_cum_post_1D_rvs([rvs_list], exp, 
-                                                          model_para_pts=p_pts, labels=["A-B"],
-                                                          post_para_label="Difference of Bernouli probability")
-
-        return fig
+        return plot_functions.plot_helper(self.make_rvs, self.make_cum_post_para, beta, 
+                group, type, N_exp, 
+                n_pdf, n_rvs,
+                "Bernoulli probability", "p",
+                xrange=p_range)
             
     
     def plot_anim(self, p_range=None, n_pdf=1000, interval=None, list_hdi=[95,90,80,60], group="A"):
@@ -267,7 +215,7 @@ class Bays_bernoulli:
         Create an animation for the evolution of the posterior
 
         Args:
-            n_pdf (int, optional): number of pts for the Bernoulli probabilty. Defaults to 1000.
+            n_pdf (int, optional): number of pts for the Bernoulli probability. Defaults to 1000.
             interval (float, optional): time in ms between frames. Defaults to None.
             list_hdi (list, optional): list of hdi's to be displayed. Defaults to [95,90,80,60].
             p_range (list, optional): lower, upper] limit for p. Defaults to None.
