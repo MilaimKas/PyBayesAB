@@ -3,7 +3,7 @@
 """
 
 import numpy as np
-import helper
+from PyBayesAB import helper
 
 def prob_best(rvs):
     """_summary_
@@ -45,14 +45,16 @@ def rope_decision(rvs, interval, level=95):
         interval (_type_): _description_
         level (int, optional): _description_. Defaults to 95.
     """
-
+    raise NotImplementedError
     hdi_low, hdi_up = hdi(rvs, level=level)
     rope_low, rope_up = rope(rvs, interval)
 
     return
 
 def MAP():
+    raise NotImplementedError
     return
 
 def bayesian_factor():
+    raise NotImplementedError
     return
