@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 
 from PyBayesAB import helper
 from PyBayesAB import plot_functions
+from PyBayesAB import bayesian_functions as bf
 
-N_SAMPLE = 5000
-N_PTS = 1000
-N_BINS = 40
+from PyBayesAB import N_BINS, N_SAMPLE, COLORS, N_PTS, FIGSIZE
+
 
 
 class BaysBernoulli:
@@ -174,6 +174,17 @@ class BaysBernoulli:
         cumsum_beta = np.cumsum(data[:,1])
             
         return cumsum_alpha, cumsum_beta
+    
+    def prob_best(self):
+        """_summary_
+
+        Returns:
+            _type_: _description_
+        """
+        rvs_A = self.make_rvs(group="A")
+        rvs_B = self.make_rvs(group="B")
+        
+        return bf.prob_best(rvs_A-rvs_B)
 
     def plot_tot(self, group="A"):
         """

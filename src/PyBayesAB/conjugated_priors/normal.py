@@ -11,6 +11,9 @@ from matplotlib import animation
 
 from PyBayesAB import helper
 from PyBayesAB import plot_functions
+from PyBayesAB import bayesian_functions as bf
+
+from PyBayesAB import N_BINS, N_SAMPLE, COLORS, N_PTS, FIGSIZE
 
 class BaysNormKnownMean:
     def __init__(self) -> None:

@@ -4,18 +4,13 @@ from matplotlib import animation
 import matplotlib.colors as colors
 
 import numpy as np
-import scipy.interpolate as interpolate
+#import scipy.interpolate as interpolate
 from scipy.stats import gaussian_kde
 from scipy.interpolate import griddata
-import scipy.ndimage
+#import scipy.ndimage
 
 from PyBayesAB import helper
-
-FIGSIZE=(6,4)
-COLORS = ["red", "blue", "green", "orange"]
-N_BINS = 20
-N_SAMPLE = 5000
-N_PTS = 2000
+from PyBayesAB import N_BINS, N_SAMPLE, COLORS, N_PTS, FIGSIZE
 
 
 def plot_tot(rvs, model_para_pts, pdf=None, xlabel="Model parameter", labels=[None]):
@@ -127,7 +122,7 @@ def plot_cum_post_2D_rvs(hist_diff, range, ylabel="p(A)-p(B)"):
     x = np.arange(1, hist_diff.shape[0]+1)
     d = (range[0]-range[1])/n_bins
     bins = np.linspace(range[0]+d, range[1]+d, n_bins)
-    X, Y = np.meshgrid(x,bins)
+    X, Y = np.meshgrid(x, bins)
 
     # smooth data
     #data = scipy.ndimage.zoom(data, 3)

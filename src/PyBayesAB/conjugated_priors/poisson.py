@@ -5,10 +5,10 @@ from scipy.stats import gamma, poisson, nbinom
 
 from PyBayesAB import helper
 from PyBayesAB import plot_functions
+from PyBayesAB import bayesian_functions as bf
 
-N_SAMPLE=5000
-N_PTS = 1000
-N_BINS = 40
+from PyBayesAB import N_BINS, N_SAMPLE, COLORS, N_PTS, FIGSIZE
+
 
 class BaysPoisson:
     def __init__(self, prior_a=1, prior_b=1) -> None:
@@ -155,6 +155,17 @@ class BaysPoisson:
         b_cum[1:] = np.arange(1, len(data)+1)
 
         return a_cum, b_cum
+
+    def prob_best(self):
+        """_summary_
+
+        Returns:
+            _type_: _description_
+        """
+        rvs_A = self.make_rvs(group="A")
+        rvs_B = self.make_rvs(group="B")
+        
+        return bf.prob_best(rvs_A-rvs_B)
     
     def plot_tot(self, group="A"):
         """
