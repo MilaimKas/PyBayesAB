@@ -1,5 +1,7 @@
 # Bayesian AB test package
 
+## About
+
 Bayesian posterior calculation, visualization and analysis for AB test. Includes only data distribution for which a conjugated prior is available.
 
 Currently available data type:
@@ -12,3 +14,6 @@ Available soon:
 - Pareto data
 - Multinomial (categorical) data
 - Gamma data
+
+## Installation
+## Usage
