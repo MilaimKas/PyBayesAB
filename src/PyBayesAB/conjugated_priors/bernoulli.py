@@ -14,7 +14,6 @@ from PyBayesAB import bayesian_functions as bf
 from PyBayesAB import N_BINS, N_SAMPLE, COLORS, N_PTS, FIGSIZE
 
 
-
 class BaysBernoulli:
     def __init__(self, prior_type='Bayes-Laplace'):
         '''
@@ -62,6 +61,25 @@ class BaysBernoulli:
         # group B (for AB test)
         self.dataB = []
         self.dataB.append(self.prior)
+
+        # dataframe
+        self.data = None
+    
+    def add_data(self, df, group_col_name="group"):
+        """
+        Add data as pandas dataframe with time sequence as index
+
+        Args:
+            df (pandas.DataFrame): must contain a column to distinguishes both A and B group
+        """
+
+        if not all(x in df[group_col_name].unique() for x in ['A', 'B']): 
+            raise ValueError("the {} column must contains at least one value for each group A and B".format(group_col_name))
+
+        self.data = df
+        self.dataA.append(df[df[group_col_name]=="A"].drop(columns=group_col_name).values.tolist())
+        self.dataB.append(df[df[group_col_name]=="B"].drop(columns=group_col_name).values.tolist())
+
     
     def add_experiment(self, hits, fails, group="A"):
         """
