@@ -64,7 +64,11 @@ class BaysBernoulli:
 
         # dataframe
         self.data = None
-    
+
+
+    # Add data
+    # -------------------------------------------------------------------
+
     def add_data(self, df, group_col_name="group"):
         """
         Add data as pandas dataframe with time sequence as index
@@ -108,6 +112,10 @@ class BaysBernoulli:
             self.dataA.append([hits,n-hits])
         elif group == "B":
             self.dataB.append([hits,n-hits])
+
+
+    # Build posterior(s)
+    # -------------------------------------------------------------------
 
     def post_pred(self, data=None, group="A"):
         """
@@ -193,16 +201,32 @@ class BaysBernoulli:
             
         return cumsum_alpha, cumsum_beta
     
-    def prob_best(self):
-        """_summary_
+    def make_diff(self, N_sample=N_SAMPLE):
+        rvs_A = self.make_rvs(group="A", N_sample=N_sample)
+        rvs_B = self.make_rvs(group="B", N_sample=N_sample)
+        return rvs_A-rvs_B
 
-        Returns:
-            _type_: _description_
-        """
-        rvs_A = self.make_rvs(group="A")
-        rvs_B = self.make_rvs(group="B")
-        
-        return bf.prob_best(rvs_A-rvs_B)
+
+    # Posterior analysis
+    # -------------------------------------------------------------------
+    
+    def prob_best(self):     
+        return bf.prob_best(self.make_rvs())
+    
+    def hdi(self, level=95):
+        return bf.hdi(self.make_diff(), level=level)
+    
+    def rope(self, interval):
+        return bf.rope(self.make_diff(), interval=interval)
+
+    def bayes_factor(self, H1=None, H0=None):
+        return bf.bayesian_factor(self.make_diff(), H1=H1, H0=H0)
+
+    def summary(self):
+        raise NotImplementedError 
+
+    # Plotting
+    # -------------------------------------------------------------------
 
     def plot_tot(self, group="A"):
         """
