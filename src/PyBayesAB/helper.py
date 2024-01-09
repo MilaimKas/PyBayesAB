@@ -14,19 +14,38 @@ def hdi(distribution, level=0.95):
     distribution = scipy.stats object
 	"""
 
-	# For a given lower limit, we can compute the corresponding 95% interval
-	def interval_width(lower):
-		upper = distribution.ppf(distribution.cdf(lower) + level)
-		return upper - lower
+	if callable(distribution.ppf):
+		# For a given lower limit, we can compute the corresponding 95% interval
+		def interval_width(lower):
+			upper = distribution.ppf(distribution.cdf(lower) + level)
+			return upper - lower
+		
+		# Find such interval which has the smallest width
+		# Use equal-tailed interval as initial guess
+		initial_guess = distribution.ppf((1-level)/2)
+		optimize_result = optimize.minimize(interval_width, initial_guess)
+		
+		lower_limit = optimize_result.x[0]
+		width = optimize_result.fun
+		upper_limit = lower_limit + width
 	
-	# Find such interval which has the smallest width
-	# Use equal-tailed interval as initial guess
-	initial_guess = distribution.ppf((1-level)/2)
-	optimize_result = optimize.minimize(interval_width, initial_guess)
-	
-	lower_limit = optimize_result.x[0]
-	width = optimize_result.fun
-	upper_limit = lower_limit + width
+	elif isinstance(distribution, np.ndarray):
+		
+		n = len(distribution)
+
+		interval_idx_inc = int(np.floor(level * n))
+		n_intervals = n - interval_idx_inc
+		interval_width = distribution[interval_idx_inc:] - distribution[:n_intervals]
+
+		if len(interval_width) == 0:
+			raise ValueError('Too few elements for interval calculation')
+
+		min_idx = np.argmin(interval_width)
+		lower_limit = distribution[min_idx]
+		upper_limit = distribution[min_idx + interval_idx_inc]
+
+	else:
+		raise ValueError("Distribution must be either a function with the ppf method or a numpy array")
 
 	return (lower_limit, upper_limit)
 
