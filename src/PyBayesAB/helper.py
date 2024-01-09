@@ -14,7 +14,7 @@ def hdi(distribution, level=0.95):
     distribution = scipy.stats object
 	"""
 
-	if callable(distribution.ppf):
+	if hasattr(distribution, 'ppf'):
 		# For a given lower limit, we can compute the corresponding 95% interval
 		def interval_width(lower):
 			upper = distribution.ppf(distribution.cdf(lower) + level)
