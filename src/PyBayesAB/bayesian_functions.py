@@ -35,7 +35,7 @@ def rope(rvs, interval):
     Returns:
         _type_: _description_
     """
-    return 100*(np.mean((rvs<max(interval)) & rvs > min(interval))) 
+    return 1-(np.mean((rvs<np.max(interval)) & (rvs>np.min(interval)))) 
 
 def rope_decision(rvs, interval, level=95):
     """_summary_
@@ -55,6 +55,38 @@ def MAP():
     raise NotImplementedError
     return
 
-def bayesian_factor():
-    raise NotImplementedError
-    return
+def bayesian_factor(posterior, H1=None, H0=None, prior=None):
+
+    if H1 is None:
+        p_H1 = np.sum(posterior)
+    else:
+        if not isinstance(H1, (list, ndarray, tuple)):
+            raise ValueError("Alternative hypothesis must be a interval in values, array or list of length two")
+        p_H1 = rope(posterior, H1)
+
+    if H0 is None:
+        p_H0 = 1/len(posterior)
+    else:
+       if not isinstance(H0, (list, ndarray, tuple)):
+            raise ValueError("Alternative hypothesis must be a interval in values, array or list of length two")
+       p_H0 = rope(posterior, H0)
+    
+    BF = p_H1/p_H0
+
+    # calculate bayes factor given H0 and H1
+    # return plain text 
+    text = " "
+    if BF < 1: 
+        text = "supports for the null hypothesis"
+    elif 1 < BF < 3:
+        text ="anecdotal evidence for the alternative"
+    elif 3 < BF < 10: 
+        text = "moderate evidence for the alternative"
+    elif 10 < BF < 30: 
+        text = "strong evidence for the alternative"
+    elif 30 < BF < 100:
+        text = "very strong evidence for the alternative"
+    else: 
+        text = "decisive/extreme evidence for the alternative"
+
+    return "Bayes factor is {:.2f}, does providing for ".format(BF) + text
