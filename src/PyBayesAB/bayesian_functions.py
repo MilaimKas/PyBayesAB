@@ -89,4 +89,4 @@ def bayesian_factor(posterior, H1=None, H0=None, prior=None):
     else: 
         text = "decisive/extreme evidence for the alternative"
 
-    return "Bayes factor is {:.2f}, does providing for ".format(BF) + text
+    return "Bayes factor is {:.2f}, thus providing ".format(BF) + text
