@@ -42,18 +42,6 @@ class BaysBernoulli:
         else:
             raise SyntaxError("Prior type not recognised")
 
-        
-        # Define liste of data
-        # ------------------------------------------
-
-        # data.shape = Nx2 where N = number of "experiments" 
-        # and each experiment is define by a number of "hits" and "fails"
-        # example: data = [[2,5],[1,1],[0,4]] 
-        #   -> 1st experiment: 2 hits and 5 fails
-        #   -> 2nd experiment: 1 hit and 1 fail
-        #   -> 3nd experiment: 0 hit and 4 fails
-        #   -> total result: 3 hits and 10 fails
-
         # group A
         self.dataA = []
         self.dataA.append(self.prior)
@@ -81,8 +69,8 @@ class BaysBernoulli:
             raise ValueError("the {} column must contains at least one value for each group A and B".format(group_col_name))
 
         self.data = df
-        self.dataA.append(df[df[group_col_name]=="A"].drop(columns=group_col_name).values.tolist())
-        self.dataB.append(df[df[group_col_name]=="B"].drop(columns=group_col_name).values.tolist())
+        self.dataA.extend(df[df[group_col_name]=="A"].drop(columns=group_col_name).values.tolist())
+        self.dataB.extend(df[df[group_col_name]=="B"].drop(columns=group_col_name).values.tolist())
 
     
     def add_experiment(self, hits, fails, group="A"):
@@ -211,7 +199,7 @@ class BaysBernoulli:
     # -------------------------------------------------------------------
     
     def prob_best(self):     
-        return bf.prob_best(self.make_rvs())
+        return bf.prob_best(self.make_diff())
     
     def hdi(self, level=95):
         return bf.hdi(self.make_diff(), level=level)
@@ -298,7 +286,36 @@ class BaysBernoulli:
             return plot_functions.plot_anim_rvs(rvs_list, p_range)
 
 
+if __name__ == "__main__":
 
+    import datetime
+    import pandas as pd
 
+    # create list of date
+    today = datetime.datetime.today().date()
+    date = [today - datetime.timedelta(days=x) for x in range(10)]
+    # create data for group A and B
+    A = np.count_nonzero(bernoulli.rvs(0.2, size=(10, 100)), axis=1)
+    B = np.count_nonzero(bernoulli.rvs(0.25, size=(10, 100)), axis=1)
+    A = pd.DataFrame(index=date, data=[["A", ha, 100-ha] for ha in A], columns=["group", "hits", "fails"])
+    B = pd.DataFrame(index=date, data=[["B", ha, 100-ha] for ha in B], columns=["group", "hits", "fails"])
+    # make pandas dataframe
+    df = pd.concat([A, B])
+
+    Bern_test = BaysBernoulli()
+    Bern_test.add_data(df)
+
+    # print probability of A being best
+    print()
+    print("AB test result analysis: ")
+    print("A is the winner with {:.1f}% probability".format(Bern_test.prob_best()))
+    print("The High Density region is {:.2f} <-> {:.2f}".format(*Bern_test.hdi()))
+    print("The probability that the true value is outside the rope is {:.1f}%".format(100*Bern_test.rope(interval=[-0.1, 0.1])))
+    print(Bern_test.bayes_factor())
+    print()
+
+    # plot total results (cumulative experiments)
+    Bern_test.plot_tot(group="AB")
+    plt.plot()
 
     
