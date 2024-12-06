@@ -60,14 +60,14 @@ def bayesian_factor(posterior, H1=None, H0=None, prior=None):
     if H1 is None:
         p_H1 = np.sum(posterior)
     else:
-        if not isinstance(H1, (list, ndarray, tuple)):
+        if not isinstance(H1, (list, np.array, tuple)):
             raise ValueError("Alternative hypothesis must be a interval in values, array or list of length two")
         p_H1 = rope(posterior, H1)
 
     if H0 is None:
         p_H0 = 1/len(posterior)
     else:
-       if not isinstance(H0, (list, ndarray, tuple)):
+       if not isinstance(H0, (list, np.array, tuple)):
             raise ValueError("Alternative hypothesis must be a interval in values, array or list of length two")
        p_H0 = rope(posterior, H0)
     

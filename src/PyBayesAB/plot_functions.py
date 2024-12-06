@@ -1,593 +1,318 @@
-
 import matplotlib.pyplot as plt
 from matplotlib import animation
-import matplotlib.colors as colors
+import matplotlib as mpl
+import seaborn as sns
 
 import numpy as np
-#import scipy.interpolate as interpolate
+
 from scipy.stats import gaussian_kde
 from scipy.interpolate import griddata
-#import scipy.ndimage
 
+from PyBayesAB import N_BINS, N_PTS, FIGSIZE, STYLE, COLOR_MAP, LINEWIDTH
 from PyBayesAB import helper
-from PyBayesAB import N_BINS, N_SAMPLE, COLORS, N_PTS, FIGSIZE
 
+# define global style
+plt.style.use(STYLE)
 
-def plot_tot(rvs, model_para_pts, pdf=None, xlabel="Model parameter", labels=[None]):
+# make rgba list of colors from cmap
+COL = helper.MplColorHelper(COLOR_MAP, 0, 1)
+COLORS = [COL.get_rgb(i) for i in np.linspace(0,1,4)]
+
+# list of cmaps
+CMAPS = [helper.create_colormap_from_rgba(c) for c in COLORS] 
+
+def plot_posterior(rvs, pdf=None, xlabel="Parameter", labels=None, 
+                   figsize=FIGSIZE, colors=COLORS, bins=N_BINS, 
+                   sns_hist_kwargs={"alpha":0.6, "element":"step", "edgecolor":None}, 
+                   plot_kwargs={"linewidth":LINEWIDTH}):
     """
-    Plot the probability density and histogram for a posterior distribution
-
+    Plot posterior distributions as histograms and/or PDFs.
     Args:
-        rvs (np.array): array with the random values for the histogramm.
-        pdf (dict): "model_para_pts" - array with axis 0 the parameter value and axis 1 the probability density.
-        xlabel (strin, optional): label for the x axis (model parameter)
+        rvs (list of np.array): Random values from posterior distributions.
+        pdf (list of tuple): List of (x, y) for PDFs, or None. Must be the same length as rvs.
+        xlabel (str): Label for the x-axis.
+        labels (list of str): Labels for each group.
+    Returns:
+        matplotlib.figure.Figure: The resulting figure.
     """
     
-    if pdf is None:
-        pdf = [None]*len(rvs)
+    fig, ax = plt.subplots(figsize=figsize)
+    labels = labels or [f"Group {i + 1}" for i in range(len(rvs))]
 
-    fig = plt.figure(figsize=FIGSIZE)
+    if pdf:
+        x, post_pdf = pdf
+        if len(post_pdf) != len(rvs):
+            raise ValueError(f"Number of posterior distribution must be the same for rvs and pdf, got {len(rvs)} and {len(post_pdf)}, respectively")
+        for i, (samples, y, color) in enumerate(zip(rvs, post_pdf, colors)):
+            label = labels[i]
+            ax.plot(x, y, color=color, **plot_kwargs)
+            sns.histplot(samples, bins=bins, stat="density", color=color, label=label, kde=False, ax=ax, **sns_hist_kwargs)
+    else:
+        for i, (samples, color) in enumerate(zip(rvs, colors)):
+            label = labels[i]
+            sns.histplot(samples, bins=bins, stat="density", color=color, label=label, ax=ax, **sns_hist_kwargs)
+            sns.kdeplot(samples, color=color, **plot_kwargs)
 
-    for r,p,lab,c in zip(rvs, pdf, labels, COLORS):
-        #plot rvs
-        plt.hist(r, density=True, alpha=0.4, label=lab, color=c, bins=N_BINS)
-        # plot pdf
-        if p is not None:
-            plt.plot(model_para_pts, p, color=c)
-        # plot gaussian kde
-        else:
-            kde = gaussian_kde(r)
-            plt.plot(model_para_pts, kde(model_para_pts), color=c)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("Density")
+    ax.legend()
+    plt.close()
 
+    return fig
+
+def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,  
+                    xlabel="Parameter", bins=N_BINS, figsize=FIGSIZE, labels=None,
+                    sns_hist_kwargs={"alpha":0.5, "element":"step", "kde_kws":{'linewidth': LINEWIDTH}, "edgecolor":None},
+                    plot_kwargs={"linewidth":LINEWIDTH}):
+    
+    fig, ax = plt.subplots(figsize=figsize)
+    N_exp = len(rvs_data)
+    
+    if labels is None:
+        labels = np.arange(1, N_exp+1)
+
+    cmaps = [plt_cm[0](np.linspace(0.1, 1, N_exp)), 
+             plt_cm[1](np.linspace(0.1, 1, N_exp))]
+
+    if pdf_data:
+        x, post_pdf = pdf_data
+        for i in range(N_exp):
+            for j, (post_rvs, y) in enumerate(zip(rvs_data[i], post_pdf[i])):
+                col = cmaps[j][i]
+                # plot rvs with large transparency 
+                sns.histplot(post_rvs, bins=bins, color=col, ax=ax, stat="density", **sns_hist_kwargs)
+                # plot pdf
+                ax.plot(x, y, color=col, **plot_kwargs)
+    
+    else:
+        for i in range(N_exp):
+            for cmp, post_rvs in zip(cmaps, rvs_data[i]):
+                # plot rvs with large transparency and kde 
+                sns.histplot(post_rvs, bins=bins, color=cmp[i], ax=ax, stat="density", **sns_hist_kwargs)
+                sns.kdeplot(post_rvs,  color=cmp[i], **plot_kwargs)
+
+    fig.colorbar(mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(0, 1), cmap=plt_cm[0]),
+             ax=ax, orientation='vertical', label="Experiments")
+    
+    #plt.legend()
     plt.xlabel(xlabel)
     plt.ylabel("Probability density")
-    plt.legend()
+    plt.close()
     
     return fig
 
+def plot_cumulative_posterior_2D_pdf(
+    pdf_data, 
+    figsize=FIGSIZE, 
+    cmaps=CMAPS, 
+    colors=COLORS, 
+    ylabel="Parameter", 
+    contour_kwargs={"levels":3, "alpha":1},
+    colormesh_kwargs={"alpha":0.7}, 
+    clabel_kwargs={"inline":True, "fontsize":8}):
 
-def plot_cum_post_2D_pdf(post, zip_post_para, labels, exp, model_para, post_para_label="Parameter"):
-    """
-    Plot a colormesh 2D plot with x=succesive posterior ('experiments')
+    fig, ax = plt.subplots(figsize=figsize)
+    plt.tight_layout()
 
-    Args:
-        post (scipy.stats): object conatining the posterior distribution function. Must have a pdf method.
-        zip_post_para (zip object): _description_
-        exp (_type_): _description_
-        model_para (_type_): _description_
-        n_pdf (_type_): _description_
-        ylabel (str, optional): _description_. Defaults to "Parameter".
-    """
+    param_pts, post_pdf = pdf_data
 
-    fig = plt.figure(figsize=FIGSIZE)
+    ngroups = len(post_pdf[0])
+    nx = len(post_pdf)
+    x=np.arange(1, nx+1)
+    ny = len(param_pts)
+    X,Y =  np.meshgrid(x, param_pts)
 
-    n_exp = len(exp)
-    n_pdf = len(model_para)
-    data_pts = np.zeros((n_pdf*n_exp,3))
-    cmaps = ["Reds", "Blues"]
-    color = ["red", "blue"] 
-    X,Y =  np.meshgrid(exp, model_para)
-
-    if len(labels) > 1:
-        alpha = 0.7
-    else:
-        alpha = 1
-
-    def truncate_colormap(name, minval=0, maxval=1.0, n=100):
-        cmap = plt.get_cmap(name)
-        new_cmap = colors.LinearSegmentedColormap.from_list(
-            'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=minval, b=maxval),
-            cmap(np.linspace(minval, maxval, n)))
-        return new_cmap
-
-    c = 0
+    data_to_plot = np.zeros((nx*ny,3))
+    pcolormesh_list = []
     # loop over groups
-    for z, lab in zip(zip_post_para, labels):
-        for i,post_para in enumerate(z):
-            Post = post(*post_para)
-            post_pdf = Post.pdf(model_para)
-            data_pts[i*n_pdf:(i+1)*n_pdf,0] = np.ones(n_pdf)*exp[i]
-            data_pts[i*n_pdf:(i+1)*n_pdf,1] = model_para
-            data_pts[i*n_pdf:(i+1)*n_pdf,2] = post_pdf
+    for i in range(ngroups):
+        # loop over experiment
+        for j in range(nx):
+            data_to_plot[j*ny:(j+1)*ny,0] = np.ones(ny)*x[j] # x
+            data_to_plot[j*ny:(j+1)*ny,1] = param_pts # y
+            data_to_plot[j*ny:(j+1)*ny,2] = post_pdf[j][i] # z
 
         # create meshgrid
-        Z = griddata((data_pts[:,0], data_pts[:,1]), data_pts[:,2], (X,Y), method='nearest')
-        plt.contour(X,Y,Z, colors=color[c], levels=5)
-        c_map = truncate_colormap(cmaps[c], 0.1, n=n_exp)
-        plt.pcolormesh(X,Y,Z, cmap=c_map, shading='auto', alpha=alpha)
+        Z = griddata((data_to_plot[:,0], data_to_plot[:,1]), data_to_plot[:,2], (X,Y), method='nearest')
+        cp = ax.contour(X,Y,Z, colors=[colors[i]]*contour_kwargs["levels"], **contour_kwargs)
+        ax.clabel(cp, **clabel_kwargs)
+        c_map = cmaps[i]
+        pcm = plt.pcolormesh(X,Y,Z, cmap=c_map, shading='auto', zorder=2, **colormesh_kwargs)
+        pcolormesh_list.append(pcm)  # Store pcolormesh for colorbars
 
-        c += 1
+    # Add individual colorbars for each pcolormesh
+    for i, pcm in enumerate(pcolormesh_list):
+        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {i + 1} Probability Density", orientation="vertical", pad=0.01)
+        cbar.ax.tick_params(labelsize=8)
     
+    plt.xticks(ticks=x, labels=[int(xx) for xx in x])
     plt.xlabel("Experiments")
-    plt.ylabel(post_para_label)
-    plt.colorbar(label="Probability density")
+    plt.ylabel(ylabel)
+    plt.close()
     #plt.legend()
 
     return fig
 
-def plot_cum_post_2D_rvs(hist_diff, range, ylabel="p(A)-p(B)"):
-    """_summary_
+def plot_cumulative_posterior_2D_rvs(
+    rvs_data, 
+    exp_label=None, 
+    bins=20, 
+    ylabel="Parameter", 
+    figsize=FIGSIZE,
+    cmaps=CMAPS, 
+    colors=COLORS, 
+    contour_kwargs={"levels": 3, "alpha": 1},
+    colormesh_kwargs={"alpha": 0.7}, 
+    clabel_kwargs={"inline": True, "fontsize": 8}
+):
+    """
+    Plot a 2D colormesh using samples of posteriors for successive experiments.
 
     Args:
-        rvs_diff (_type_): _description_
-        range (_type_): _description_
-
-    Returns:
-        _type_: _description_
+        rvs_data (list of np.array): List of arrays, each containing random samples for one "experiment."
+        exp_label (list or np.array, optional): List of experiment indices or labels (x-axis).
+        bins (int or array-like): Number of bins or specific bin edges for the histograms.
+        ylabel (str, optional): Label for the y-axis (parameters). Defaults to "Parameter".
     """
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    nx = len(rvs_data)
+    ngroups = len(rvs_data[0])
+
+    # Set up x-axis labels
+    if exp_label is None:
+        exp_label = np.arange(1, nx + 1)
+
+    # Compute histograms for each experiment
+    bin_edges = None
+    bin_centers = None
+    Z_list = []  # List to store Z data for each group
+
+    for i in range(ngroups):
+        histograms = []
+        for j in range(nx):
+            hist, edges = np.histogram(rvs_data[j][i], bins=bins, density=True)
+            histograms.append(hist)
+            if bin_edges is None:
+                bin_edges = edges  # Use the bin edges from the first histogram
+                bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])  # Midpoints of bins
+
+        # Stack histograms into a 2D array for plotting
+        Z = np.array(histograms).T  # Shape: (len(bin_centers), nx)
+        Z_list.append(Z)
+
+        # Prepare the grid for experiments (x-axis) and parameter bins (y-axis)
+        X, Y = np.meshgrid(exp_label, bin_centers)
+
+        # Colormesh plot
+        pcm = ax.pcolormesh(X, Y, Z, shading='auto', cmap=cmaps[i], **colormesh_kwargs)
+
+        # Add colorbar
+        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {i + 1} Probability Density", orientation="vertical", pad=0.01)
+
+        # Add contour plot
+        cp = ax.contour(X, Y, Z, colors=[colors[i]]*contour_kwargs["levels"], zorder=2, **contour_kwargs)
+        ax.clabel(cp, **clabel_kwargs)
+
+    # Add labels and title
+    ax.set_xticks(exp_label)
+    ax.set_xlabel("Experiments")
+    ax.set_ylabel(ylabel)
+    plt.close()
+
+    return fig
+
+
+def animate_posterior(post_data, interval=200, 
+                        figsize=FIGSIZE, colors=COLORS,
+                        kwargs_post={"linewidth":2, "edgecolor":(0,0,0,1)}, 
+                        kwargs_hdis= {"linewidth":2, "edgecolor":(0,0,0,0.7), "alpha":0.7},
+                        xlim=None, xlabel="Parameters", labels=None, n_pts=N_PTS, exp_label=None,
+                        norm_app=True):
     
-    fig = plt.figure(figsize=FIGSIZE)
+    plt.rcParams["animation.html"] = "jshtml"
 
-    n_bins = hist_diff.shape[1]
-    x = np.arange(1, hist_diff.shape[0]+1)
-    d = (range[0]-range[1])/n_bins
-    bins = np.linspace(range[0]+d, range[1]+d, n_bins)
-    X, Y = np.meshgrid(x, bins)
+    fig, axs = plt.subplots(1, 2, figsize=figsize)
+    fig.tight_layout(pad=2)
 
-    # smooth data
-    #data = scipy.ndimage.zoom(data, 3)
-    
-    plt.contour(X, Y, hist_diff.transpose(), levels=5, linewidths=0.5, colors='white')
-    plt.pcolormesh(X,Y, hist_diff.transpose(), cmap="viridis", shading='auto')
-    plt.xlabel("Experiments")
-    plt.ylabel(ylabel)
-    plt.colorbar(label="Probability density")
+    if len(post_data) == 2:
+        type = "pdf"
+        param_pts, post_pts = post_data
+        n_exp = len(post_pts)
+        ymax = max(helper.flatten_nested_list(post_pts[-1])) 
+        ymin = min(helper.flatten_nested_list(post_pts[0]))
+        if xlim is None:
+            xlim = [min(param_pts), max(param_pts)]
+    else:
+        type = "rvs"
+        post_pts = post_data.copy()
+        n_exp = len(post_pts)
+        ymax = max(np.histogram(helper.flatten_nested_list(post_pts[-1]), bins=100, density=True)[0])
+        ymin = min(np.histogram(helper.flatten_nested_list(post_pts[0]), bins=100, density=True)[0])
+        if xlim is None:
+            xlim = [min(helper.flatten_nested_list(post_pts[0])), max(helper.flatten_nested_list(post_pts[0]))]
+        param_pts = np.linspace(xlim[0], xlim[1], n_pts)
+      
+    # posterior distribution(s) and hdis
+    lines = []
+    hdis =[]
+    for c, post in zip(colors, post_pts[0]):
+        if type == "pdf":
+            l = axs[0].fill_between(param_pts, post, color=c, **kwargs_post)
+        else:
+            l = axs[0].fill_between(param_pts, gaussian_kde(post)(param_pts), color=c, **kwargs_post)
+        hdis.append(axs[1].fill_between(np.arange(n_exp), np.zeros(n_exp), color=c, **kwargs_hdis))
+        lines.append(l)
 
-    return fig  
+    axs[0].set_ylabel("Density")
+    axs[0].set_xlabel(xlabel)
+    axs[1].set_ylabel(xlabel)
+    axs[1].set_xlabel("Experiments")
 
-def plot_cum_post_1D_pdf(post, zip_post_para, labels, exp, model_para, post_para_label="Parameter"):
-    """_summary_
+    axs[0].set_xlim(xlim[0], xlim[1])
+    axs[1].set_xlim(0, n_exp)
 
-    Args:
-        post (_type_): _description_
-        zip_post_para (_type_): _description_
-        exp (_type_): _description_
-        model_para (_type_): _description_
-        post_para_label (str, optional): _description_. Defaults to "Parameter".
+    axs[0].set_ylim(ymin, ymax)
+    axs[1].set_ylim(xlim[0], xlim[1])
 
-    Returns:
-        _type_: _description_
-    """
-    
-    fig = plt.figure(figsize=FIGSIZE)
+    if labels is None:
+        labels = [f"Group {i}" for i in range(len(lines)) ]
 
-    N_exp = len(exp)
-    cmaps = [plt.cm.Reds(np.linspace(0.1, 1, N_exp)), 
-             plt.cm.Blues(np.linspace(0.1, 1, N_exp)),]
+    axs[0].legend(lines, labels=labels)
+    axs[1].legend(lines, labels=labels)
 
-    for z, cmap, lab in zip(zip_post_para, cmaps, labels):
-        for i, post_para in enumerate(z):
-            Post = post(*post_para)
-            if i == N_exp-1:
-                plt.plot(model_para, Post.pdf(model_para), color=cmap[i], label=lab)
+    if exp_label is None:
+        exp_label = np.arange(1, n_exp + 1)
+
+    # dont show plot on notebook
+    plt.close(fig) 
+        
+    def update(frame):
+        for i in range(len(lines)):
+            
+            # update post
+            # Get the paths created by fill_between
+            path_post = lines[i].get_paths()[0]
+            verts_post = path_post.vertices
+            path_hdis = hdis[i].get_paths()[0]
+            verts_hdis = path_hdis.vertices
+
+            # Elements 1:Nx+1 encode the upper curve
+            if type == "pdf":
+                post = post_pts[frame][i]
+                up, low = helper.hdi_fromxy(param_pts, post)
+                verts_post[1:len(param_pts)+1, 1] = post
             else:
-                plt.plot(model_para, Post.pdf(model_para), color=cmap[i])
+                up, low = helper.hdi(post_pts[frame][i], norm_app=norm_app)
+                verts_post[1:len(param_pts)+1, 1] = gaussian_kde(post_pts[frame][i])(param_pts)
 
-    plt.legend()
-    plt.xlabel(post_para_label)
-    plt.ylabel("Probability density")
-    
-    return fig
+            verts_hdis[frame+1, 1] = up
+            verts_hdis[-frame-1, 1] = low
 
-def plot_cum_post_1D_rvs(rvs, exp, model_para_pts, labels, post_para_label="Parameter"):
-    """_summary_
+        axs[1].set_xlim(0, max(1, frame-2))
+        x_ticks_pos, x_ticks_labels = helper.get_ticks(exp_label[:max(1, frame)])
+        axs[1].set_xticks(x_ticks_pos, labels=x_ticks_labels)
 
-    Args:
-        rvs (_type_): _description_
-        exp (_type_): _description_
-        model_para_pts (_type_): _description_
-        post_para_label (str, optional): _description_. Defaults to "Parameter".
+    return animation.FuncAnimation(fig, update, frames=n_exp, interval=interval, blit=False)
 
-    Returns:
-        _type_: _description_
-    """
-
-    fig = plt.figure(figsize=FIGSIZE)
-
-    n_exp = len(exp)
-    cmaps = [plt.cm.Reds(np.linspace(0.1,1,n_exp)), 
-             plt.cm.Blues(np.linspace(0.1,1,n_exp)),]
-
-    for rv, cmap, lab in zip(rvs, cmaps, labels):
-        for i,r in enumerate(rv):
-            #plt.hist(r, bins=N_BINS, color=cmap[i], alpha=0.4, density=True)
-            kde = gaussian_kde(r)
-            plt.plot(model_para_pts, kde(model_para_pts), color=cmap[i])
-
-    plt.xlabel(post_para_label)
-    plt.ylabel("Probability density")
-
-    return fig
-
-
-def plot_anim_pdf(post, post_para, model_para_range, 
-                model_para_label="Model parameter", list_hdi=[95,90,80,60], n_pdf=1000, interval=None, rvs=False):
-    """
-    Make an animation with the evolution of the posterior and the hdi's
-
-    Args:
-        post (scipy.stats): posterior distribution object (must have pdf, ppf, cdf methods)
-        post_para (list): list with the cumulative posterior parameter for each 'experiment'
-        model_para_i (float): lower limit for the model parameter
-        model_para_f (float): upper limit for the model parameter
-        model_para_label (str, optional): label for the model parameter. Defaults to "Model parameter".
-        list_hdi (array_like, optional): list of desired hdi level to be displayed. Defaults to [95,90,80,60].
-        n_pdf (int, optional): number of pts for the model parameter. Defaults to 1000.
-        interval (float, optional): time in ms between each frame. 
-                                    If None, this will be calculated so that the entire animation last 5s. Defaults to None.
-
-    Returns:
-        pyplot.animate.Funcanimation 
-    """
-
-    plt.rcParams["animation.html"] = "jshtml"
-    model_para_i, model_para_f = model_para_range
-    if interval is None:
-        # default is 5s duration
-        interval = 5000/len(post_para)
-
-    n_exp = len(post_para)
-    model_para_pts = np.linspace(model_para_i, model_para_f, n_pdf)
-
-    # frame
-    fig, axs = plt.subplots(1, 2)
-    fig.tight_layout()
-
-    Post = post(*post_para[-1])
-
-    # initialize posterior plot  
-    axs[0].set_xlabel(model_para_label)
-    axs[0].set_ylabel("Probabilty density")
-    axs[0].set_xlim(model_para_i,model_para_f)
-    ymax = np.max(Post.pdf(model_para_pts))
-    axs[0].set_ylim(0, ymax)          
-    anim_post, = axs[0].plot(model_para_pts, np.zeros_like(model_para_pts), color="black")
-    anim_fill = axs[0].fill_between(model_para_pts, np.zeros_like(model_para_pts), alpha=0.5, color="b")
-
-    # initialize hdi plot
-    colors = plt.cm.viridis(np.linspace(0,1,4))
-    axs[1].set_xlabel("Experiments")
-    axs[1].set_ylabel(model_para_label)
-    axs[1].set_ylim(model_para_i,model_para_f)
-    # store fill_between obj in list
-    anim_hdi = []
-    x = np.arange(n_exp)
-    y_up = np.zeros(n_exp)
-    y_low = np.zeros(n_exp)
-    for j,hdi in enumerate(list_hdi):
-        anim_hdi.append(axs[1].fill_between(x, y_up, y_low,
-                                            label="{}%".format(hdi), color=colors[j]))
-    plt.legend()
-
-    plt.close(fig)  # dont show initial plot
-
-    # animation function  
-    def animate(i):
-        # ref: https://brushingupscience.com/2019/08/01/elaborate-matplotlib-animations/
-
-        # update posterior plot
-        ###############################
-
-        Post = post(*post_para[i])
-        post_pdf = Post.pdf(model_para_pts)
-        anim_post.set_data(model_para_pts, post_pdf)
-
-        # update fill
-        # Get the paths created by fill_between
-        path = anim_fill.get_paths()[0]
-        # vertices is the part we need to change
-        verts = path.vertices
-        # Elements 1:Nx+1 encode the upper curve
-        verts[1:n_pdf+1, 1] = post_pdf
-
-        # update hdi plots
-        ###############################
-
-        for hdi_level,fill in zip(list_hdi, anim_hdi):
-            
-            # Get hdi
-            hdi_up, hdi_low = helper.hdi(Post, level=hdi_level/100)
-
-            if (hdi_low == np.nan) or (hdi_up == np.nan):
-                hdi_low = 0
-                hdi_up = np.max(post_pdf)
-
-            # Get the paths created by fill_between
-            path = fill.get_paths()[0]
-            # vertices contain the x(1st dim) and y(2nd dim) pts
-            verts = path.vertices
-            # Elements 1:n_exp+1 encode the upper curve
-            verts[i, 1] = hdi_up
-            # Elements n_exp+2:-1 encode the lower curve, but
-            # in right-to-left order
-            verts[-i, 1] = hdi_low
-            # It is unclear what 0th, Nx+1, and -1 elements
-            # are for as they are not addressed here
-        
-        # set dynamic x and y limits
-        axs[1].set_xlim(0, max(1, i-2))
-
-
-    # call the animator.  blit=True means only re-draw the parts that have changed.
-    return animation.FuncAnimation(fig, animate,
-                            frames=n_exp, interval=interval, blit=False)
-
-
-def plot_anim_rvs(rvs_list, model_para_range, 
-                model_para_label="Model parameter", list_hdi=[95,90,80,60], 
-                n_pts=N_PTS, interval=None, rvs=False):
-    """
-    Make an animation with the evolution of the posterior and the hdi's
-
-    Args:
-        post (scipy.stats): posterior distribution object (must have pdf, ppf, cdf methods)
-        post_para (list): list with the cumulative posterior parameter for each 'experiment'
-        model_para_i (float): lower limit for the model parameter
-        model_para_f (float): upper limit for the model parameter
-        model_para_label (str, optional): label for the model parameter. Defaults to "Model parameter".
-        list_hdi (array_like, optional): list of desired hdi level to be displayed. Defaults to [95,90,80,60].
-        n_pdf (int, optional): number of pts for the model parameter. Defaults to 1000.
-        interval (float, optional): time in ms between each frame. 
-                                    If None, this will be calculated so that the entire animation last 5s. Defaults to None.
-
-    Returns:
-        pyplot.animate.Funcanimation 
-    """
-
-    plt.rcParams["animation.html"] = "jshtml"
-
-    if interval is None:
-        # default is 5s duration
-        interval = 5000/len(rvs_list)
-
-    n_exp = len(rvs_list)
-
-    if model_para_range is None:
-        model_para_i = min(rvs_list[0])
-        model_para_f = max(rvs_list[0])
-    else:
-        model_para_i, model_para_f = model_para_range
-    model_para_pts = np.linspace(model_para_i, model_para_f, n_pts)
-
-    # frame
-    fig, axs = plt.subplots(1, 2)
-    fig.tight_layout()
-
-    Post = rvs_list[0]
-
-    # initialize posterior plot  
-    axs[0].set_xlabel(model_para_label)
-    axs[0].set_ylabel("Probabilty density")
-    axs[0].set_xlim(min(Post),max(Post))
-    ymax = max(np.histogram(rvs, bins=N_BINS)[0])
-    axs[0].set_ylim(0, ymax) 
-    anim_post, = axs[0].plot(model_para_pts, np.zeros_like(model_para_pts), color="black")
-    anim_fill = axs[0].fill_between(model_para_pts, np.zeros_like(model_para_pts), alpha=0.5, color="b")
-
-    # initialize hdi plot
-    colors = plt.cm.viridis(np.linspace(0,1,4))
-    axs[1].set_xlabel("Experiments")
-    axs[1].set_ylabel(model_para_label)
-    axs[1].set_ylim(model_para_i,model_para_f)
-    # store fill_between obj in list
-    anim_hdi = []
-    x = np.arange(n_exp)
-    y_up = np.zeros(n_exp)
-    y_low = np.zeros(n_exp)
-    for j,hdi in enumerate(list_hdi):
-        anim_hdi.append(axs[1].fill_between(x, y_up, y_low,
-                                            label="{}%".format(hdi), color=colors[j]))
-    plt.legend()
-
-    plt.close(fig)  # dont show initial plot
-
-    # animation function  
-    def animate(i):
-        # ref: https://brushingupscience.com/2019/08/01/elaborate-matplotlib-animations/
-
-        # update posterior plot
-        ###############################
-
-        kde = gaussian_kde(rvs_list[i])
-        Post = helper.KDE(kde, min(rvs_list[i]), max(rvs_list[i]), N_PTS)
-        post_pdf = kde(model_para_pts)
-        anim_post.set_data(model_para_pts, post_pdf)
-
-        # update fill
-        # Get the paths created by fill_between
-        path = anim_fill.get_paths()[0]
-        # vertices is the part we need to change
-        verts = path.vertices
-        # Elements 1:Nx+1 encode the upper curve
-        verts[1:n_pts+1, 1] = post_pdf
-
-        # update hdi plots
-        ###############################
-
-
-        for hdi_level,fill in zip(list_hdi, anim_hdi):
-            
-            # Get hdi
-            hdi_up, hdi_low = helper.hdi(Post, level=hdi_level/100)
-
-            if (hdi_low == np.nan) or (hdi_up == np.nan):
-                hdi_low = 0
-                hdi_up = np.max(post_pdf)
-
-            # Get the paths created by fill_between
-            path = fill.get_paths()[0]
-            # vertices contain the x(1st dim) and y(2nd dim) pts
-            verts = path.vertices
-            # Elements 1:n_exp+1 encode the upper curve
-            verts[i, 1] = hdi_up
-            # Elements n_exp+2:-1 encode the lower curve, but
-            # in right-to-left order
-            verts[-i, 1] = hdi_low
-            # It is unclear what 0th, Nx+1, and -1 elements
-            # are for as they are not addressed here
-        
-        # set dynamic x and y limits
-        axs[1].set_xlim(0, max(1, i-2))
-
-
-    # call the animator.  blit=True means only re-draw the parts that have changed.
-    return animation.FuncAnimation(fig, animate,
-                            frames=n_exp, interval=interval, blit=False)
-
-
-def make_plot_tot(make_rvs, make_pdf, group, xlabel, n_rvs=N_SAMPLE, para_range=None, n_pts=N_PTS):
-    """
-    plot the posterior distribution for the total result for all conjugated prior classes
-
-    Args:
-        n_rvs (int, optional): number of random value for the histogram. Defaults to 1000.
-        prange (list, optional): [lower, upper] limit for p. Defaults to None.
-    """       
-        
-    if (group == "A") or (group == "B"):
-        rvs = make_rvs(group=group, N_sample=n_rvs)
-        if para_range is None:
-            para_range = [np.min(rvs), np.max(rvs)]
-        model_para_pts, post = make_pdf(group=group, para_range=para_range)
-        fig = plot_tot([rvs], model_para_pts, [post], labels=[group], xlabel=xlabel)
-    
-    elif group == "diff":
-        rvs_A = make_rvs(group="A", N_sample=n_rvs) 
-        rvs_B = make_rvs(group="B", N_sample=n_rvs)
-        rvs_diff = rvs_A-rvs_B
-        if para_range is None:
-            para_range = [np.min(rvs_diff), np.max(rvs_diff)]
-        model_para_pts = np.linspace(para_range[0],para_range[1],n_pts)
-        fig = plot_tot([rvs_diff],model_para_pts, labels=["A-B"], xlabel="Difference in "+xlabel)
-    
-    elif group == "AB":
-        rvs_A = make_rvs(group="A", N_sample=n_rvs)
-        rvs_B = make_rvs(group="B", N_sample=n_rvs)
-        rvs_tmp = np.concatenate((rvs_A, rvs_B))
-        if para_range is None:
-            para_range = [np.min(rvs_tmp), max(rvs_tmp)]
-        model_para_pts, post_A = make_pdf(group="A", para_range=para_range)
-        _, post_B = make_pdf(group="B", para_range=para_range)
-        fig = plot_tot([rvs_A, rvs_B], model_para_pts, [post_A, post_B],
-                                        labels=["A", "B"], 
-                                        xlabel=xlabel)    
-    else:
-        raise SyntaxError("group can only be A,B,diff or AB")
-
-    return fig
-
-def plot_helper(make_rvs, make_cum_post_para, conjugated_prior, 
-                group, type, N_exp, 
-                n_pdf, n_rvs,
-                label1, label2,
-                xrange=None):
-    """
-    Wrapper function for the different plots
-
-    Args:
-        make_rvs (_type_): _description_
-        make_cum_post_para (_type_): _description_
-        conjugated_prior (_type_): _description_
-        group (_type_): _description_
-        N_exp (_type_): _description_
-        n_pdf (_type_): _description_
-        n_rvs (_type_): _description_
-        label1 (_type_): _description_
-        label2 (_type_): _description_
-        xrange (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-
-    experiment_cnt = np.arange(1, N_exp+1)
-
-    # plot posterior for one group
-    if (group == "A") or (group == "B"):
-
-        # values for x axis
-        # if range of probabilities is not given, take it from the rvs 
-        if xrange is None:
-            rvs = make_rvs(group=group)
-            xrange = [np.min(rvs), np.max(rvs)] 
-        x_pts = np.linspace(xrange[0],xrange[1],n_pdf)
-
-        # make a list of cumulative 
-        zip_post_para = [zip(*make_cum_post_para(group=group))]
-        labels = [group]
-
-        # 2D map plot
-        if type == "2D":
-            fig = plot_cum_post_2D_pdf(conjugated_prior, zip_post_para, 
-                                                    labels, 
-                                                    experiment_cnt, x_pts, 
-                                                    post_para_label=label1)
-        
-        # 1D plot
-        elif type == "1D":
-            fig = plot_cum_post_1D_pdf(conjugated_prior, zip_post_para, 
-                                                        labels, 
-                                                        experiment_cnt, x_pts, 
-                                                        post_para_label=label1)
-    
-    # plot posterior for both groups
-    elif group == "AB":
-
-        zip_post_para = [zip(*make_cum_post_para(group="A")), 
-                            zip(*make_cum_post_para(group="B"))]
-        labels = ["A", "B"]
-
-        if xrange is None:
-            rvs = np.concatenate((make_rvs(), make_rvs(group="B")))
-            xrange = [np.min(rvs), np.max(rvs)]
-        x_pts = np.linspace(xrange[0],xrange[1],n_pdf)
-
-        if type == "2D":
-            fig = plot_cum_post_2D_pdf(conjugated_prior, zip_post_para, 
-                                                    labels, 
-                                                    experiment_cnt, x_pts, 
-                                                    post_para_label=label1)
-        elif type == "1D":
-            fig = plot_cum_post_1D_pdf(conjugated_prior, zip_post_para, 
-                                                    labels, 
-                                                    experiment_cnt, x_pts, 
-                                                    post_para_label=label1)
-    
-    # plot posterior for the difference
-    elif group == "diff":
-
-        # list of parameters for the gamma function
-        A_a, A_b = make_cum_post_para(group="A")
-        B_a, B_b = make_cum_post_para(group="B")
-        # rvs for the differences after the first "experiment"
-        rvs_diff = conjugated_prior(a=A_a[0], b=A_b[0]).rvs(size=n_rvs)\
-                    -conjugated_prior(a=B_a[0], b=B_b[0]).rvs(size=n_rvs)
-        # x range
-        if xrange is None:
-            xrange = [np.min(rvs_diff), max(rvs_diff)]
-        x_pts = np.linspace(xrange[0],xrange[1],n_pdf)
-
-        # build list of histogram
-        hist_list = []
-        rvs_list = []
-        for aa,ab,ba,bb in zip(A_a, A_b, B_a, B_b):
-            rvs = conjugated_prior(a=aa, b=ab).rvs(size=n_rvs)\
-                    -conjugated_prior(a=ba, b=bb).rvs(size=n_rvs)
-            hist = np.histogram(rvs, bins=N_BINS, range=xrange, density=True)[0]
-            hist_list.append(hist)
-            rvs_list.append(rvs)
-
-        if type == "2D":
-            hist_arr = np.array(hist_list)
-            fig = plot_cum_post_2D_rvs(hist_arr, xrange,
-                                        ylabel=r"${}$(A)-${}$(B)".format(label2, label2))
-            
-        elif type == "1D":
-            fig = plot_cum_post_1D_rvs([rvs_list], experiment_cnt, 
-                                        model_para_pts=x_pts, labels=["A-B"],
-                                        post_para_label="Difference of "+label1)
-        
-    else:
-        raise ValueError("group must be either 'A', 'B', 'diff' or 'AB'")
-
-    return fig
