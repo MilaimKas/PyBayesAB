@@ -26,6 +26,16 @@ class PoissonMixin:
 
         self.prior = prior
         self.parameter_name = "Poisson mean"
+
+    def get_parameters(self, parameters, group, data):
+        if parameters is not None:
+            if len(parameters) != 2:
+                raise ValueError("Gamma posterior needs 2 parameters: alpha and beta")
+            else:
+                a,b = parameters
+        else:
+            a,b = self.post_parameters(group=group, data=data)
+        return a, b
     
     def make_default_mu_range(self, a, b, percentile=0.9999):
         """
@@ -53,7 +63,7 @@ class PoissonMixin:
         for ev in n_events:
             self.add_experiment(ev, group=group)
     
-    def post_pred(self, group="A"):
+    def post_pred(self, size=1, group="A"):
         """
         returns the posterior predictve distribution which gives the probabilty for the next observation
         p(x|X) where x = new observation and X = all data collected so far
@@ -62,19 +72,14 @@ class PoissonMixin:
             scipy.stats.nbinom: posterior predictive distribution
         """
         a,b = self.post_parameters(group=group)
-        return nbinom(a,b/(1+b))
+        return nbinom.rvs(a,b/(1+b), size=size)
     
     def post_parameters(self, group="A", data=None):
         """
         return the parameters for the gamma posterior given the data
         """
         if data is None:
-            if group == "A":
-                data = self.dataA
-            elif group == "B":
-                data = self.dataB
-            else:
-                raise ValueError("Group must be either 'A' or 'B'")
+            data = self.return_data(group)
         a = sum(data)+self.prior[0]
         b = len(data)+self.prior[1]
 
@@ -92,15 +97,7 @@ class PoissonMixin:
         Returns:
             _type_: _description_
         """
-        if parameters is not None:
-            if len(parameters) != 2:
-                raise ValueError("Gamma posterior needs 2 parameters: alpha and beta")
-            else:
-                a,b = parameters
-                a += self.prior[0]
-                b += self.prior[1]
-        else:
-            a,b = self.post_parameters(data=data, group=group)
+        a,b = self.get_parameters(parameters, group, data)
         return gamma.rvs(a, scale=1/b, size=N_sample)
     
     def make_pdf(self, parameters=None, data=None, group="A", p_pts=None, para_range=None):
@@ -116,15 +113,7 @@ class PoissonMixin:
         Returns:
             np.array, np.array: x values, y values
         """
-        if parameters is not None:
-            if len(parameters) != 2:
-                raise ValueError("Gamma posterior needs 2 parameters: alpha and beta")
-            else:
-                a,b = parameters
-                a += self.prior[0]
-                b += self.prior[1]
-        else:
-            a,b = self.post_parameters(group=group, data=data)
+        a,b = self.get_parameters(parameters, group, data)
         if p_pts is None:
             if para_range is None:
                 para_range = self.make_default_mu_range(a, b)
@@ -132,12 +121,7 @@ class PoissonMixin:
         return gamma.pdf(p_pts, a, scale=1/b)
 
     def make_cum_post_para(self, group="A"):
-        if group == "A":
-            data = self.dataA
-        elif group == "B":
-            data = self.dataB
-        else:
-            raise ValueError("Only A and B are valid groups")
+        data = self.return_data(group)
         # cumulative alpha and beta value
         a_cum = np.cumsum(data)
         b_cum = np.zeros(len(data)+1)
