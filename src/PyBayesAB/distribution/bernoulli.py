@@ -31,65 +31,55 @@ class BernoulliMixin:
         self.prior = prior
         self.parameter_name = "Bernoulli probability"
 
+    def get_parameters(self, parameters, group, data):
+        if parameters is not None:
+            if len(parameters) != 2:
+                raise ValueError("Gamma posterior needs 2 parameters: alpha and beta")
+            else:
+                a,b = parameters
+        else:
+            a,b = self.post_parameters(group=group, data=data)
+        return a, b
+    
     def add_rand_experiment(self, n, p, group="A"):
         hits = np.sum(bernoulli.rvs(p, size=n))
         fails = n - hits
         self.add_experiment([hits, fails], group=group)
 
     def make_rvs(self, parameters=None, data=None, group="A", N_sample=N_SAMPLE):
-        if parameters is not None:
-            if len(parameters) != 2:
-                raise ValueError("Beta posterior needs 2 parameters: alpha and beta")
-            else:
-                a,b = parameters
-                a += self.prior[0]
-                b += self.prior[1]
-        else:
-            a,b = self.post_parameters(data=data, group=group)
+        a,b = self.get_parameters(parameters, group, data)
         return beta.rvs(a,b,size=N_sample)
     
     def make_pdf(self, parameters=None, data=None, group="A", p_pts=None, para_range=PARA_RANGE):
-        if parameters is not None:
-            if len(parameters) != 2:
-                raise ValueError("Beta posterior needs 2 parameters: alpha and beta")
-            else:
-                a,b = parameters
-                a += self.prior[0]
-                b += self.prior[1]
-        else:
-            a,b = self.post_parameters(data=data, group=group)
+        a,b = self.get_parameters(parameters, group, data)
         if p_pts is None:
             p_pts = np.linspace(para_range[0], para_range[1], N_PTS)
         return beta.pdf(p_pts,a,b)
 
-    def post_parameters(self, data, group="A"):
-        data = np.array(self.dataA if group == "A" else self.dataB)
+    def post_parameters(self, data=None, group="A"):
+        if data is None:
+            data = np.array(self.return_data(group))
         a = np.sum(data[:, 0]) + self.prior[0]
         b = np.sum(data[:, 1]) + self.prior[1]
         return a,b
     
     def make_cum_post_para(self, group="A"):
-        if group == "A":
-            data = self.dataA
-        elif group == "B":
-            data = self.dataB
-        else:
-            raise ValueError("Only A and B are valid groups")
-        data = np.array(data, dtype="object")
+        data =  np.array(self.return_data(group))
         # cumulative hits and fails
         cumsum_alpha = np.cumsum(data[:,0])
         cumsum_beta = np.cumsum(data[:,1])
         return cumsum_alpha,cumsum_beta
 
-    def post_pred(self, data=None, group="A"):
+    def post_pred(self, size=1, group="A"):
         """
         returns the probability that the next data points will be a hit
 
         Returns:
             float: posterior predictive for a hits
         """
-        a,b = self.post_parameters(data=data, group=group)
-        return a/(a+b)
+        a,b = self.post_parameters(group=group)
+        p_new = a/(a+b)
+        return bernoulli.rvs(p_new, size=size)
     
     def make_cum_posterior(self, group="A", N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS):
         if para_range is None:
