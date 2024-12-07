@@ -1,17 +1,15 @@
 
 import numpy as np
 
-from scipy.stats import gamma
-from scipy.stats import expon
-import scipy.interpolate as interpolate
+from scipy.stats import gamma, expon
 
-import matplotlib.pyplot as plt
-from matplotlib import animation
-
+from PyBayesAB.base_model import BayesianModel  
+from PyBayesAB.base_plot import PlotManager  
 from PyBayesAB import helper
-from PyBayesAB import plot_functions
 
-class BaysExponential:
+from PyBayesAB import N_SAMPLE, N_PTS
+
+class ExponentialMixin:
 
     def __init__(self) -> None:
         raise NotImplementedError()
@@ -19,7 +17,7 @@ class BaysExponential:
     def add_experiment(self, pts):
         return
     
-    def add_rand_experiment(self,n,sig):
+    def add_rand_experiment(self,n, mean):
         return
     
     def post_pred(self, data=None):
@@ -31,8 +29,13 @@ class BaysExponential:
     def post_distr(self,data=None):
         return
     
-    def plot_tot(self, sig_lower, sig_upper, data=None, n_pdf=1000):
+    def plot_tot(self, mean_lower, mean_upper, data=None, n_pdf=1000):
         return
     
-    def plot_anim(self, sig_lower, sig_upper, n_pdf=1000, data=None, interval=None):
+    def plot_anim(self, mean_lower, mean_upper, n_pdf=1000, data=None, interval=None):
         return
+
+class BaysExponential(ExponentialMixin, BayesianModel, PlotManager):
+    def __init__(self, prior=[]):
+        BayesianModel.__init__(self)
+        ExponentialMixin.__init__(self,  prior=prior)
