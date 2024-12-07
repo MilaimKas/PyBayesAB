@@ -3,45 +3,112 @@
 
 import numpy as np
 
-from scipy.stats import norm, t
-import scipy.interpolate as interpolate
+from scipy.stats import norm, t, gamma
 
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
+from PyBayesAB.base_model import BayesianModel  
+from PyBayesAB.base_plot import PlotManager  
 from PyBayesAB import helper
-from PyBayesAB import plot_functions
-from PyBayesAB import bayesian_functions as bf
 
-from PyBayesAB import N_BINS, N_SAMPLE, COLORS, N_PTS, FIGSIZE
+from PyBayesAB import N_SAMPLE, N_PTS
 
-class BaysNormKnownMean:
-    def __init__(self) -> None:
-        raise NotImplementedError()
+class NormKnownMeanMixin:
 
-    def add_experiment(self, pts):
-        return
-    
-    def add_rand_experiment(self,n,sig):
-        return
-    
-    def post_pred(self, data=None):
-        return
-    
-    def post_parameters(self,data=None):
-        return
-    
-    def post_distr(self,data=None):
-        return
-    
-    def plot_tot(self, sig_lower, sig_upper, data=None, n_pdf=1000):
-        return
-    
-    def plot_anim(self, sig_lower, sig_upper, n_pdf=1000, data=None, interval=None):
-        return
+    def __init__(self, mu, prior=[10**-3,10**-3]):
+        self.mu = mu
+        self.prior = prior
 
+    def tau2sig(self, tau):
+        return np.sqrt(1/tau)
+    
+    def get_parameters(self, parameters, group, data):
+        if parameters is not None:
+            if len(parameters) != 2:
+                raise ValueError("Gamma posterior needs 2 parameters: alpha and beta")
+            else:
+                a,b = parameters
+        else:
+            a,b = self.post_parameters(group=group, data=data)
+        return a, b
 
-class BaysNormKnownSig:
+    def make_default_tau_range(self, a, b, percentile=0.9999):
+        """
+        mean + variance as max
+        """
+        # Define the percentile bounds
+        lower_percentile = 1-percentile
+        upper_percentile = percentile
+
+        # Calculate the meaningful range
+        taumin = gamma.ppf(lower_percentile, a=a, scale=b)
+        taumax = gamma.ppf(upper_percentile, a=a, scale=b)
+        return [taumin, taumax]
+    
+    def add_rand_experiment(self, sig, group="A"):
+        data_pts = norm.rvs(self.mu, scale=sig, size=N_SAMPLE)
+        self.add_experiment(data_pts, group=group)
+    
+    def post_pred(self, size=1, group="A"):
+        a,b = self.post_parameters(group=group)
+        df = 2 * a         
+        loc = self.mu                
+        scale = np.sqrt(b / a) 
+        return t.rvs(df, loc=loc, scale=scale, size=size)
+    
+    def post_parameters(self, group="A", data=None):
+        if data is None:
+            data = np.array(self.return_data(group))
+        a = self.prior[0] + sum(data.shape)/2
+        b = self.prior[1] + sum((data-self.mu)**2)/2
+        return a, b
+
+    def make_rvs(self, parameters=None, data=None, group="A", N_sample=N_SAMPLE):
+        a, b = self.get_parameters(parameters, group, data)
+        return gamma.rvs(a, scale=1/b, size=N_sample)
+    
+    def make_pdf(self, parameters=None, data=None, group="A", p_pts=None, para_range=None):
+        a,b = self.get_parameters(parameters, group, data)
+        if p_pts is None:
+            if para_range is None:
+                para_range = self.make_default_tau_range(a, b)
+            p_pts = np.linspace(para_range[0], para_range[1], N_PTS)
+        return gamma.pdf(p_pts, a, scale=1/b)
+
+    def make_cum_post_para(self, group="A"):
+        data = self.return_data(group)
+        # cumulative alpha and beta value
+        a_cum = [self.prior[0]]
+        b_cum = [self.prior[1]]
+        a=self.prior[0]
+        b=self.prior[1]
+        for i in range(len(data)):
+            a += len(data[i])/2
+            b += sum((data[i]-self.mu)**2)/2
+            a_cum.append(a)
+            b_cum.append(b)
+        return a_cum, b_cum
+
+    def make_cum_posterior(self, group="A", N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS):
+        # create list of rvs and pdf
+        a_cum, b_cum = self.make_cum_post_para(group=group)
+        rvs_data = []
+        pdf_data = []
+        if para_range is None:
+            para_range = self.make_default_tau_range(a_cum[1], b_cum[1])
+        p_pts = np.linspace(para_range[0], para_range[1], N_pts)
+        for a,b in zip(a_cum, b_cum):
+            rvs_data.append(self.make_rvs(parameters=[a,b], N_sample=N_sample))
+            pdf_data.append(self.make_pdf(parameters=[a,b], p_pts=p_pts))
+        return p_pts, rvs_data, pdf_data
+
+class BaysNormKnownMean(NormKnownMeanMixin, BayesianModel, PlotManager):
+    def __init__(self, prior=[10**-3,10**-3]):
+        BayesianModel.__init__(self)
+        NormKnownMeanMixin.__init__(self,  prior=prior)
+
+class BaysNormKnownSTDMixin:
     def __init__(self) -> None:
         raise NotImplementedError()
 
