@@ -16,12 +16,20 @@ from PyBayesAB import N_SAMPLE, N_PTS
 
 class NormKnownMeanMixin:
 
-    def __init__(self, mu, prior=[10**-3,10**-3]):
+    def __init__(self, mu, prior=None):
+
         self.mu = mu
+        if prior is None:
+            prior = [1, 50]
+
         self.prior = prior
+        self.parameter_name = "Prescision"
 
     def tau2sig(self, tau):
-        return np.sqrt(1/tau)
+        return np.sqrt(1/tau) if tau > 0 else np.inf
+    
+    def sig2tau(self, sig):
+        return 1/sig**2 if sig > 0 else np.inf
     
     def get_parameters(self, parameters, group, data):
         if parameters is not None:
@@ -33,7 +41,7 @@ class NormKnownMeanMixin:
             a,b = self.post_parameters(group=group, data=data)
         return a, b
 
-    def make_default_tau_range(self, a, b, percentile=0.9999):
+    def make_default_tau_range(self, a, b, percentile=0.999):
         """
         mean + variance as max
         """
@@ -42,12 +50,12 @@ class NormKnownMeanMixin:
         upper_percentile = percentile
 
         # Calculate the meaningful range
-        taumin = gamma.ppf(lower_percentile, a=a, scale=b)
-        taumax = gamma.ppf(upper_percentile, a=a, scale=b)
+        taumin = gamma.ppf(lower_percentile, a=a, scale=1/b)
+        taumax = gamma.ppf(upper_percentile, a=a, scale=1/b)
         return [taumin, taumax]
     
-    def add_rand_experiment(self, sig, group="A"):
-        data_pts = norm.rvs(self.mu, scale=sig, size=N_SAMPLE)
+    def add_rand_experiment(self, tau, n_data, group="A"):
+        data_pts = norm.rvs(self.mu, scale=self.tau2sig(tau), size=n_data)
         self.add_experiment(data_pts, group=group)
     
     def post_pred(self, size=1, group="A"):
@@ -59,9 +67,12 @@ class NormKnownMeanMixin:
     
     def post_parameters(self, group="A", data=None):
         if data is None:
-            data = np.array(self.return_data(group))
-        a = self.prior[0] + sum(data.shape)/2
-        b = self.prior[1] + sum((data-self.mu)**2)/2
+            data = self.return_data(group)
+        a = self.prior[0]
+        b = self.prior[1]
+        for d in data:
+            a += len(d)/2
+            b += sum((d-self.mu)**2)/2
         return a, b
 
     def make_rvs(self, parameters=None, data=None, group="A", N_sample=N_SAMPLE):
@@ -79,8 +90,8 @@ class NormKnownMeanMixin:
     def make_cum_post_para(self, group="A"):
         data = self.return_data(group)
         # cumulative alpha and beta value
-        a_cum = [self.prior[0]]
-        b_cum = [self.prior[1]]
+        a_cum = []
+        b_cum = []
         a=self.prior[0]
         b=self.prior[1]
         for i in range(len(data)):
@@ -104,9 +115,9 @@ class NormKnownMeanMixin:
         return p_pts, rvs_data, pdf_data
 
 class BaysNormKnownMean(NormKnownMeanMixin, BayesianModel, PlotManager):
-    def __init__(self, prior=[10**-3,10**-3]):
+    def __init__(self, mean, prior=None):
         BayesianModel.__init__(self)
-        NormKnownMeanMixin.__init__(self,  prior=prior)
+        NormKnownMeanMixin.__init__(self,mu=mean, prior=prior)
 
 class BaysNormKnownSTDMixin:
     def __init__(self) -> None:
