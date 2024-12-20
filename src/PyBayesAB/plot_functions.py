@@ -107,6 +107,7 @@ def plot_cumulative_posterior_2D_pdf(
     cmaps=CMAPS, 
     colors=COLORS, 
     ylabel="Parameter", 
+    group_labels=["A", "B"],
     contour_kwargs={"levels":3, "alpha":1},
     colormesh_kwargs={"alpha":0.7}, 
     clabel_kwargs={"inline":True, "fontsize":8}):
@@ -142,7 +143,7 @@ def plot_cumulative_posterior_2D_pdf(
 
     # Add individual colorbars for each pcolormesh
     for i, pcm in enumerate(pcolormesh_list):
-        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {i + 1} Probability Density", orientation="vertical", pad=0.01)
+        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i] + 1} Probability Density", orientation="vertical", pad=0.01)
         cbar.ax.tick_params(labelsize=8)
     
     plt.xticks(ticks=x, labels=[int(xx) for xx in x])
@@ -158,6 +159,7 @@ def plot_cumulative_posterior_2D_rvs(
     exp_label=None, 
     bins=20, 
     ylabel="Parameter", 
+    group_labels=["A", "B"],
     figsize=FIGSIZE,
     cmaps=CMAPS, 
     colors=COLORS, 
@@ -209,7 +211,7 @@ def plot_cumulative_posterior_2D_rvs(
         pcm = ax.pcolormesh(X, Y, Z, shading='auto', cmap=cmaps[i], **colormesh_kwargs)
 
         # Add colorbar
-        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {i + 1} Probability Density", orientation="vertical", pad=0.01)
+        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i] + 1} Probability Density", orientation="vertical", pad=0.01)
 
         # Add contour plot
         cp = ax.contour(X, Y, Z, colors=[colors[i]]*contour_kwargs["levels"], zorder=2, **contour_kwargs)
@@ -226,6 +228,7 @@ def plot_cumulative_posterior_2D_rvs(
 
 def animate_posterior(post_data, interval=200, 
                         figsize=FIGSIZE, colors=COLORS,
+                        group_labels=["A", "B"],
                         kwargs_post={"linewidth":2, "edgecolor":(0,0,0,1)}, 
                         kwargs_hdis= {"linewidth":2, "edgecolor":(0,0,0,0.7), "alpha":0.7},
                         xlim=None, xlabel="Parameters", labels=None, n_pts=N_PTS, exp_label=None,
@@ -277,7 +280,7 @@ def animate_posterior(post_data, interval=200,
     axs[1].set_ylim(xlim[0], xlim[1])
 
     if labels is None:
-        labels = [f"Group {i}" for i in range(len(lines)) ]
+        labels = [f"Group {group_labels[i]}" for i in range(len(lines)) ]
 
     axs[0].legend(lines, labels=labels)
     axs[1].legend(lines, labels=labels)
