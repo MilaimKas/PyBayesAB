@@ -71,22 +71,27 @@ class PlotManager:
         # plot posterior for one group
         if (group == "A") or (group == "B") or (group == "AB"):
             
+            if group == "AB":
+                group_labels = ["A","B"]
+            else:
+                group_labels = group
+
             # 2D map plot
             if type == "2D":
-                fig = plot_functions.plot_cumulative_posterior_2D_pdf(pdf_data, ylabel=parameter_name)
+                fig = plot_functions.plot_cumulative_posterior_2D_pdf(pdf_data, ylabel=parameter_name, group_labels=group_labels)
             
             # 1D plot
             elif type == "1D":
-                fig = plot_functions.plot_cumulative_posterior_1D(rvs_data, pdf_data=pdf_data, xlabel=parameter_name)
+                fig = plot_functions.plot_cumulative_posterior_1D(rvs_data, pdf_data=pdf_data, xlabel=parameter_name, group_labels=group_labels)
         
         # plot posterior for the difference
         elif group == "diff":
 
             if type == "2D":
-                fig = plot_functions.plot_cumulative_posterior_2D_rvs(rvs_data, ylabel=parameter_name)
+                fig = plot_functions.plot_cumulative_posterior_2D_rvs(rvs_data, ylabel=parameter_name, group_labels=["diff"])
                 
             elif type == "1D":
-                fig = plot_functions.plot_cumulative_posterior_1D(rvs_data, pdf_data=None, xlabel=parameter_name)
+                fig = plot_functions.plot_cumulative_posterior_1D(rvs_data, pdf_data=None, xlabel=parameter_name, group_labels=["diff"])
             
         else:
             raise ValueError("group must be either 'A', 'B', 'diff' or 'AB'")
