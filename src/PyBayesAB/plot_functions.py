@@ -63,7 +63,8 @@ def plot_posterior(rvs, pdf=None, xlabel="Parameter", labels=None,
 def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,  
                     xlabel="Parameter", bins=N_BINS, figsize=FIGSIZE, labels=None,
                     sns_hist_kwargs={"alpha":0.5, "element":"step", "kde_kws":{'linewidth': LINEWIDTH}, "edgecolor":None},
-                    plot_kwargs={"linewidth":LINEWIDTH}):
+                    plot_kwargs={"linewidth":LINEWIDTH}, 
+                    group_labels=None):
     
     fig, ax = plt.subplots(figsize=figsize)
     N_exp = len(rvs_data)
@@ -77,12 +78,12 @@ def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,
     if pdf_data:
         x, post_pdf = pdf_data
         for i in range(N_exp):
-            for j, (post_rvs, y) in enumerate(zip(rvs_data[i], post_pdf[i])):
+            for j, lab, (post_rvs, y) in enumerate(zip(rvs_data[i], group_labels, post_pdf[i])):
                 col = cmaps[j][i]
                 # plot rvs with large transparency 
                 sns.histplot(post_rvs, bins=bins, color=col, ax=ax, stat="density", **sns_hist_kwargs)
                 # plot pdf
-                ax.plot(x, y, color=col, **plot_kwargs)
+                ax.plot(x, y, color=col, **plot_kwargs, labels=lab)
     
     else:
         for i in range(N_exp):
@@ -143,7 +144,7 @@ def plot_cumulative_posterior_2D_pdf(
 
     # Add individual colorbars for each pcolormesh
     for i, pcm in enumerate(pcolormesh_list):
-        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i] + 1} Probability Density", orientation="vertical", pad=0.01)
+        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i]} Probability Density", orientation="vertical", pad=0.01)
         cbar.ax.tick_params(labelsize=8)
     
     plt.xticks(ticks=x, labels=[int(xx) for xx in x])
@@ -211,7 +212,7 @@ def plot_cumulative_posterior_2D_rvs(
         pcm = ax.pcolormesh(X, Y, Z, shading='auto', cmap=cmaps[i], **colormesh_kwargs)
 
         # Add colorbar
-        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i] + 1} Probability Density", orientation="vertical", pad=0.01)
+        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i]} Probability Density", orientation="vertical", pad=0.01)
 
         # Add contour plot
         cp = ax.contour(X, Y, Z, colors=[colors[i]]*contour_kwargs["levels"], zorder=2, **contour_kwargs)
