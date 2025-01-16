@@ -65,6 +65,9 @@ class BernoulliMixin:
     
     def make_cum_post_para(self, group="A"):
         data =  np.array(self.return_data(group))
+        # add prior
+        data[0,0] += self.prior[0]
+        data[0,1] += self.prior[1]
         # cumulative hits and fails
         cumsum_alpha = np.cumsum(data[:,0])
         cumsum_beta = np.cumsum(data[:,1])
