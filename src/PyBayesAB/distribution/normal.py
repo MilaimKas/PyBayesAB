@@ -145,7 +145,7 @@ class BaysNormKnownSTDMixin:
         return
     
 
-class BaysNormal:
+class _BaysNormal:
     def __init__(self, mu_prior=0, kappa_prior=1, alpha_prior=0.5, beta_prior=50):
         """
         Class for:

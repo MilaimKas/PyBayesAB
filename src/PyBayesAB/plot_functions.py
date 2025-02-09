@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 from matplotlib import animation
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+
 import matplotlib as mpl
 import seaborn as sns
 
@@ -78,12 +80,12 @@ def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,
     if pdf_data:
         x, post_pdf = pdf_data
         for i in range(N_exp):
-            for j, lab, (post_rvs, y) in enumerate(zip(rvs_data[i], group_labels, post_pdf[i])):
+            for j, (post_rvs, lab, pdf, xx) in enumerate(zip(rvs_data[i], group_labels, post_pdf[i], x)):
                 col = cmaps[j][i]
                 # plot rvs with large transparency 
                 sns.histplot(post_rvs, bins=bins, color=col, ax=ax, stat="density", **sns_hist_kwargs)
                 # plot pdf
-                ax.plot(x, y, color=col, **plot_kwargs, labels=lab)
+                ax.plot(xx, pdf, color=col, **plot_kwargs, label=lab)
     
     else:
         for i in range(N_exp):
@@ -121,17 +123,17 @@ def plot_cumulative_posterior_2D_pdf(
     ngroups = len(post_pdf[0])
     nx = len(post_pdf)
     x=np.arange(1, nx+1)
-    ny = len(param_pts)
-    X,Y =  np.meshgrid(x, param_pts)
 
-    data_to_plot = np.zeros((nx*ny,3))
     pcolormesh_list = []
     # loop over groups
     for i in range(ngroups):
+        ny = len(param_pts[i])
+        X,Y =  np.meshgrid(x, param_pts[i])
+        data_to_plot = np.zeros((nx*ny,3))
         # loop over experiment
         for j in range(nx):
             data_to_plot[j*ny:(j+1)*ny,0] = np.ones(ny)*x[j] # x
-            data_to_plot[j*ny:(j+1)*ny,1] = param_pts # y
+            data_to_plot[j*ny:(j+1)*ny,1] = param_pts[i] # y
             data_to_plot[j*ny:(j+1)*ny,2] = post_pdf[j][i] # z
 
         # create meshgrid
@@ -154,6 +156,92 @@ def plot_cumulative_posterior_2D_pdf(
     #plt.legend()
 
     return fig
+
+
+def plot_cumulative_posterior_3D(rvs_data, pdf_data=None,  
+                    xlabel="Parameter", bins=30, figsize=(10, 7), labels=None,
+                    plt_cm=CMAPS,
+                    plt_bar_kwargs={"alpha":0.5},
+                    plot_kwargs={"linewidth":1}, 
+                    group_labels=None, 
+                    scaled_space=4, view=(40, -50)):
+    
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(projection='3d')   
+    ax.grid(False)
+     
+    N_exp = len(rvs_data)
+    N_groups = len(rvs_data[0])
+
+    if labels is None:
+        labels = [str(i) for i in np.arange(1, N_exp+1)]
+    
+    if group_labels is None:
+        group_labels = [f"group_{i}" for i in range(N_groups)]
+
+    # Generate colormap for different experiments
+    if isinstance(plt_cm, list) and len(plt_cm) >= 2:
+        cmaps = [plt_cm[0](np.linspace(0.1, 1, N_exp)), 
+                 plt_cm[1](np.linspace(0.1, 1, N_exp))]
+    else:
+        cmaps = [plt_cm(np.linspace(0.1, 1, N_exp))]  # Single colormap
+
+    if pdf_data:
+        x, post_pdf = pdf_data
+        for i in range(N_exp):
+            for j, (post_rvs, lab, pdf, xx) in enumerate(zip(rvs_data[i], group_labels, post_pdf[i], x)):
+                col = cmaps[j][i]
+                
+                # Compute histogram
+                hist, edges = np.histogram(post_rvs, bins=bins, density=True)
+                bar_pos = [(a+edges[i+1])/2.0 for i,a in enumerate(edges[0:-1])]
+                w = abs(bar_pos[1]) - abs(bar_pos[0])
+                
+                # Bar plot
+                ax.bar(bar_pos, hist, zs=i, zdir='x', align='center', width=w, color=col, **plt_bar_kwargs)
+                
+                # PDF plot
+                ax.plot(xx, pdf, zs=i, zdir='x', color=cmaps[j][-1], **plot_kwargs, label=lab)
+
+    else:
+        for i in range(N_exp):
+            for j, (post_rvs, lab) in enumerate(zip(rvs_data[i], group_labels)):
+                col = cmaps[j][i]
+
+                # Compute histogram
+                hist, edges = np.histogram(post_rvs, bins=bins, density=True)
+                bar_pos = [(a+edges[i+1])/2.0 for i,a in enumerate(edges[0:-1])]
+                w = abs(bar_pos[1]) - abs(bar_pos[0])
+
+                # Corrected: Bar positioning
+                ax.bar(bar_pos, hist, zs=i, zdir='x', align='center', width=w, color=col, **plt_bar_kwargs)
+
+                # add gaussian kde plot
+                pdf = gaussian_kde(post_rvs).pdf(bar_pos)
+                ax.plot(bar_pos, pdf, zs=i, zdir='x', color=cmaps[j][-1], **plot_kwargs, label=lab)
+
+    # add exp labels
+    ax.set_xticks(np.arange(N_exp))
+    ax.set_xticklabels(labels)
+
+    ax.set_xlabel("Experiments")
+    ax.set_ylabel(xlabel)
+
+    # hide z axis and xy plane
+    ax.zaxis.set_label_position('none')
+    ax.zaxis.set_ticks_position('none')    
+    ax.xaxis.pane.set_visible(False)  # Hides the Z-axis background
+    ax.yaxis.pane.set_visible(False)
+
+    #ax.legend()
+
+    # stretch x axis
+    ax.view_init(*view)  # Prevents cut-off issues
+    ax.set_box_aspect(aspect=(scaled_space, scaled_space/2, 1))
+
+    plt.close()
+    return fig
+
 
 def plot_cumulative_posterior_2D_rvs(
     rvs_data, 
@@ -247,7 +335,7 @@ def animate_posterior(post_data, interval=200,
         ymax = max(helper.flatten_nested_list(post_pts[-1])) 
         ymin = min(helper.flatten_nested_list(post_pts[0]))
         if xlim is None:
-            xlim = [min(param_pts), max(param_pts)]
+            xlim = [min(min(p) for p in param_pts), max(max(p) for p in param_pts)]
     else:
         type = "rvs"
         post_pts = post_data.copy()
@@ -256,16 +344,16 @@ def animate_posterior(post_data, interval=200,
         ymin = min(np.histogram(helper.flatten_nested_list(post_pts[0]), bins=100, density=True)[0])
         if xlim is None:
             xlim = [min(helper.flatten_nested_list(post_pts[0])), max(helper.flatten_nested_list(post_pts[0]))]
-        param_pts = np.linspace(xlim[0], xlim[1], n_pts)
+        param_pts = [np.linspace(xlim[0], xlim[1], n_pts)]
       
     # posterior distribution(s) and hdis
     lines = []
     hdis =[]
-    for c, post in zip(colors, post_pts[0]):
+    for c, post, p_pts in zip(colors, post_pts[0], param_pts):
         if type == "pdf":
-            l = axs[0].fill_between(param_pts, post, color=c, **kwargs_post)
+            l = axs[0].fill_between(p_pts, post, color=c, **kwargs_post)
         else:
-            l = axs[0].fill_between(param_pts, gaussian_kde(post)(param_pts), color=c, **kwargs_post)
+            l = axs[0].fill_between(p_pts, gaussian_kde(post)(p_pts), color=c, **kwargs_post)
         hdis.append(axs[1].fill_between(np.arange(n_exp), np.zeros(n_exp), color=c, **kwargs_hdis))
         lines.append(l)
 
@@ -305,11 +393,11 @@ def animate_posterior(post_data, interval=200,
             # Elements 1:Nx+1 encode the upper curve
             if type == "pdf":
                 post = post_pts[frame][i]
-                up, low = helper.hdi_fromxy(param_pts, post)
-                verts_post[1:len(param_pts)+1, 1] = post
+                up, low = helper.hdi_fromxy(param_pts[i], post)
+                verts_post[1:len(param_pts[i])+1, 1] = post
             else:
                 up, low = helper.hdi(post_pts[frame][i], norm_app=norm_app)
-                verts_post[1:len(param_pts)+1, 1] = gaussian_kde(post_pts[frame][i])(param_pts)
+                verts_post[1:len(param_pts[i])+1, 1] = gaussian_kde(post_pts[frame][i])(param_pts[i])
 
             verts_hdis[frame+1, 1] = up
             verts_hdis[-frame-1, 1] = low

@@ -83,6 +83,9 @@ class PlotManager:
             # 1D plot
             elif type == "1D":
                 fig = plot_functions.plot_cumulative_posterior_1D(rvs_data, pdf_data=pdf_data, xlabel=parameter_name, group_labels=group_labels)
+
+            elif type == "3D":
+                fig = plot_functions.plot_cumulative_posterior_3D(rvs_data, pdf_data=pdf_data, xlabel=parameter_name, group_labels=group_labels)
         
         # plot posterior for the difference
         elif group == "diff":
@@ -92,6 +95,9 @@ class PlotManager:
                 
             elif type == "1D":
                 fig = plot_functions.plot_cumulative_posterior_1D(rvs_data, pdf_data=None, xlabel=parameter_name, group_labels=["diff"])
+
+            elif type == "3D":
+                fig = plot_functions.plot_cumulative_posterior_3D(rvs_data, xlabel=parameter_name, group_labels=["diff"])
             
         else:
             raise ValueError("group must be either 'A', 'B', 'diff' or 'AB'")
@@ -99,10 +105,14 @@ class PlotManager:
         return fig
 
     def plot_anim(self, group, N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS, interval=200, figsize=FIGSIZE):
+        try: 
+            parameter_name = self.parameter_name
+        except:
+            parameter_name = "Parameters"
         rvs_data, pdf_data = self.get_post_data(group=group, para_range=para_range, N_sample=N_sample, N_pts=N_pts)
         if pdf_data is None:
             pdf_data = rvs_data
-        return plot_functions.animate_posterior(pdf_data, interval=interval, figsize=figsize)
+        return plot_functions.animate_posterior(pdf_data, interval=interval, figsize=figsize, xlabel=parameter_name)
 
 
     def get_post_data(self, group, para_range=None, N_sample=N_SAMPLE, N_pts=N_PTS):
@@ -111,14 +121,14 @@ class PlotManager:
             
             param_pts, rvs_data, pdf_data = self.make_cum_posterior(group=group, N_sample=N_sample, para_range=para_range, N_pts=N_pts)
             rvs_data = [[r] for r in rvs_data]
-            pdf_data = [param_pts, [[p] for p in pdf_data]]
+            pdf_data = [[param_pts], [[p] for p in pdf_data]]
 
         elif group == "AB":
-            _ , rvs_data_A, pdf_data_A = self.make_cum_posterior(group="A", N_sample=N_sample, para_range=para_range, N_pts=N_pts)
-            param_pts, rvs_data_B, pdf_data_B = self.make_cum_posterior(group="B", N_sample=N_sample, para_range=para_range, N_pts=N_pts)
+            param_pts_A , rvs_data_A, pdf_data_A = self.make_cum_posterior(group="A", N_sample=N_sample, para_range=para_range, N_pts=N_pts)
+            param_pts_B, rvs_data_B, pdf_data_B = self.make_cum_posterior(group="B", N_sample=N_sample, para_range=para_range, N_pts=N_pts)
 
             rvs_data = list(zip(rvs_data_A, rvs_data_B))
-            pdf_data = [param_pts, list(zip(pdf_data_A, pdf_data_B))]
+            pdf_data = [[param_pts_A, param_pts_B], list(zip(pdf_data_A, pdf_data_B))]
 
         elif group == "diff":
 
