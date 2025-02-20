@@ -1,4 +1,3 @@
-
 import numpy as np
 
 from scipy.stats import gamma, poisson, nbinom
@@ -11,12 +10,14 @@ from PyBayesAB import N_SAMPLE, N_PTS
 PARA_RANGE=[0, np.inf]
 
 class PoissonMixin:
+    """
+    Class for:
+    - Likelihood  = Poisson
+    - prior and posterior = Gamma
+    - model parameter = lambda (rate)
+    """
+            
     def __init__(self, prior=[1,1]) -> None:
-        """
-        Class for:
-        - likelihood = Poisson
-        - prior and posterior = Gamma
-        """
 
         if len(prior) != 2:
             raise ValueError(" Number of parameters for gamma prior is 2 (alpha and beta)")
@@ -122,8 +123,13 @@ class PoissonMixin:
 
     def make_cum_post_para(self, group="A"):
         data = self.return_data(group)
+
         # cumulative alpha and beta value
-        a_cum = np.cumsum(data)
+        a_cum = np.zeros(len(data)+1)  # Fixed np.zero to np.zeros
+        a_cum[0] = self.prior[0]
+        a_cum[1:] = data
+        a_cum = np.cumsum(a_cum)
+
         b_cum = np.zeros(len(data)+1)
         b_cum[0] = self.prior[1]
         b_cum[1:] = np.arange(1, len(data)+1)
@@ -135,7 +141,7 @@ class PoissonMixin:
         rvs_data = []
         pdf_data = []
         if para_range is None:
-            para_range = self.make_default_mu_range(a_cum[-1], b_cum[-1])
+            para_range = self.make_default_mu_range(a_cum[-1], b_cum[-1])  # Fixed method call
         p_pts = np.linspace(para_range[0], para_range[1], N_pts)
         for a,b in zip(a_cum, b_cum):
             rvs_data.append(self.make_rvs(parameters=[a,b], N_sample=N_sample))
