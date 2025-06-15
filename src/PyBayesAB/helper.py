@@ -16,7 +16,6 @@ import math
 from PyBayesAB import STYLE
 
 
-
 def hdi(distribution, level=0.95, norm_app=False):
 	"""
 	Get the highest density interval for the distribution, 
@@ -41,9 +40,9 @@ def hdi(distribution, level=0.95, norm_app=False):
 			initial_guess = distribution.ppf((1-level)/2)
 			optimize_result = optimize.minimize(interval_width, initial_guess)
 			
-			lower_limit = optimize_result.x[0]
+			upper_limit = optimize_result.x[0]
 			width = optimize_result.fun
-			upper_limit = lower_limit + width
+			lower_limit = lower_limit + width
 	
 	elif isinstance(distribution, np.ndarray):
 		
@@ -61,8 +60,8 @@ def hdi(distribution, level=0.95, norm_app=False):
 				raise ValueError('Too few elements for interval calculation')
 
 			min_idx = np.argmin(interval_width)
-			lower_limit = distribution[min_idx]
-			upper_limit = distribution[min_idx + interval_idx_inc]
+			upper_limit = distribution[min_idx]
+			lower_limit = distribution[min_idx + interval_idx_inc]
 
 	else:
 		raise ValueError("Distribution must be either a function with the ppf method or a rvs (numpy array)")
@@ -127,7 +126,6 @@ class KDE:
 		
 		return mean, std
 
-
 class GammaCustom:
 	def __init__(self, a=10**-3, b=1):
 		"""
@@ -164,7 +162,6 @@ class GammaCustom:
 		if beta is None:
 			beta = self.beta
 		return gamma.cdf(model_para_pts, alpha, scale=1/beta)
-
 
 class NormalGamma:
 	def __init__(self, mu=0, kappa=1, a=0.5, b=50):
