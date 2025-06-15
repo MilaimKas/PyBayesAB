@@ -4,6 +4,7 @@
 
 import numpy as np
 from PyBayesAB import helper
+from scipy.stats import gaussian_kde
 
 def prob_best(rvs):
     """_summary_
@@ -20,40 +21,58 @@ def hdi(distribution, level=95):
     """_summary_
 
     Args:
-        distribution (_type_): _description_
-        level (int, optional): _description_. Defaults to 95.
+        distribution (array or callable): rvs samples or callable pdf.
+        level (int, optional): mass density for high density interval. Defaults to 95%.
     """
     return helper.hdi(distribution, level=level/100)
 
 def rope(rvs, interval):
-    """_summary_
+    """
+    Proportion of random samples that fall within the specified interval (ROPE).
 
     Args:
-        rvs (_type_): _description_
-        interval (_type_): _description_
+        rvs (array): Random samples from the posterior distribution.
+        interval (list or tuple): The interval for the ROPE.
 
     Returns:
-        _type_: _description_
+        float: Proportion of samples within the ROPE interval.
     """
-    return 1-(np.mean((rvs<np.max(interval)) & (rvs>np.min(interval)))) 
+    return (np.mean((rvs<np.max(interval)) & (rvs>np.min(interval)))) 
 
-def rope_decision(rvs, interval, level=95):
-    """_summary_
+def rope_decision(rvs, rope_interval, level=95):
+    """
+    Makes a decision based on the ROPE and HDI for the posterior distribution.
 
     Args:
-        rvs (_type_): _description_
-        interval (_type_): _description_
-        level (int, optional): _description_. Defaults to 95.
+        rvs (np.array): Random samples from the posterior distribution.
+        interval (list or tuple): The interval for the ROPE.
+        level (int, optional): The confidence level for the HDI. Defaults to 95.
+
+    Returns:
+        str: Decision about the significance of the test.
     """
-    raise NotImplementedError
+    # Calculate HDI
     hdi_low, hdi_up = hdi(rvs, level=level)
-    rope_low, rope_up = rope(rvs, interval)
 
-    return
+    # Check if HDI is > 0  and entirely outside the ROPE
+    if hdi_up < 0:
+        if hdi_up < np.min(rope_interval):
+            return "Practically Significant: Group A is better"
+        else:
+            return "Statistically Significant: Group A is better"
+    elif hdi_low > 0:
+        if  hdi_low > np.max(rope_interval):
+            return "Practically Significant: Group B is better"
+        else:
+            return "Statistically Significant: Group B is better"
 
-def MAP():
-    raise NotImplementedError
-    return
+    # Check if HDI is entirely within the ROPE
+    elif hdi_low >= np.min(rope_interval) and hdi_up <= np.max(rope_interval):
+        return "Significant: no difference between A and B (within ROPE)"
+
+    # Otherwise, the result is inconclusive
+    else:
+        return "Inconclusive: needs more data (overlaps with ROPE)"
 
 def bayesian_factor(posterior, H1=None, H0=None, prior=None):
 
@@ -90,3 +109,28 @@ def bayesian_factor(posterior, H1=None, H0=None, prior=None):
         text = "decisive/extreme evidence for the alternative"
 
     return "Bayes factor is {:.2f}, thus providing ".format(BF) + text
+
+def map(rvs, method="median"):
+    """
+    Estimates the Maximum A Posteriori (MAP) value from posterior samples.
+
+    Args:
+        rvs (np.array): Random samples from the posterior distribution.
+        method (str, optional): Method to estimate the MAP ("median" or "kde"). Defaults to "median".
+
+    Returns:
+        float: MAP estimate based on the provided samples.
+    """
+    if method == "median":
+        # Use the median of the posterior samples as the MAP estimate
+        map_estimate = np.median(rvs)
+    elif method == "kde":
+        # Kernel Density Estimation (KDE)
+        kde = gaussian_kde(rvs)
+        x_vals = np.linspace(np.min(rvs), np.max(rvs), 1000)
+        densities = kde(x_vals)
+        map_estimate = x_vals[np.argmax(densities)]
+    else:
+        raise ValueError("Invalid method. Choose 'median' or 'kde'.")
+
+    return map_estimate
