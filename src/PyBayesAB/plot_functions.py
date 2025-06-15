@@ -157,7 +157,6 @@ def plot_cumulative_posterior_2D_pdf(
 
     return fig
 
-
 def plot_cumulative_posterior_3D(rvs_data, pdf_data=None,  
                     xlabel="Parameter", bins=30, figsize=(10, 7), labels=None,
                     plt_cm=CMAPS,
@@ -314,6 +313,53 @@ def plot_cumulative_posterior_2D_rvs(
 
     return fig
 
+def plot_bayesian_metrics(num_experiments, hdi_lower, hdi_upper, rope_values, map_values, prob_best, 
+                        xlabel="Number of Experiments", ylabel="Metrics Value",
+                        title="Bayesian Metrics", rope_interval=None):
+    """
+    Plots Bayesian metrics (HDI, ROPE, MAP) against the number of experiments using Matplotlib. 
+    """
+
+    ## HDI and MAP ##
+
+    # Create Matplotlib figure
+    fig1, ax = plt.subplots(figsize=(10, 6))
+
+    # Plot HDI
+    ax.plot(num_experiments, hdi_lower, label='_nolegend_', linestyle='--', color='blue')
+    ax.plot(num_experiments, hdi_upper, label='_nolegend_', linestyle='--', color='blue')
+    ax.fill_between(num_experiments, hdi_lower, hdi_upper, color='blue', alpha=0.2, label='HDI Range')
+
+    # Plot MAP
+    ax.plot(num_experiments, map_values, label='MAP', linestyle='-', color='red')
+
+    if rope_interval is not None:
+        # Plot ROPE as a horizontal line
+        ax.fill_between(num_experiments, rope_interval[0], rope_interval[1],
+                        color='green', alpha=0.2, label='ROPE Range')
+
+    # Add labels and legend
+    ax.set_title('Bayesian Metrics vs Number of Experiments')
+    ax.set_xlabel('Number of Experiments')
+    ax.set_ylabel('Metric Value')
+    ax.legend()
+
+    ### ROPE and Probability of Best ###
+    fig2, ax2 = plt.subplots(figsize=(10, 6))   
+
+    # Plot ROPE probability
+    ax2.plot(num_experiments, rope_values, label='ROPE', linestyle='-', color='green')
+    
+    # Plot probability of best
+    ax2.plot(num_experiments, prob_best, label='Probability of A better than B', linestyle='-', color='orange')
+
+    # Add labels and legend
+    ax2.set_title('Bayesian Metrics vs Number of Experiments')
+    ax2.set_xlabel('Number of Experiments')
+    ax2.set_ylabel('Metric Value')
+    ax2.legend()
+
+    return fig1, fig2
 
 def animate_posterior(post_data, interval=200, 
                         figsize=FIGSIZE, colors=COLORS,

@@ -1,7 +1,6 @@
-
 import numpy as np
 
-from PyBayesAB import plot_functions
+from PyBayesAB import plot_functions, helper, bayesian_functions
 from PyBayesAB import N_SAMPLE, N_PTS, FIGSIZE
 
 
@@ -18,12 +17,8 @@ class PlotManager:
             prange (list, optional): [lower, upper] limit for p. Defaults to None.
         """       
 
-        # check kwargs if any
-        
-        try: 
-            parameter_name = self.parameter_name
-        except:
-            parameter_name = "Parameters"
+
+        parameter_name = self.get_parameter_name()
 
         # plot either group A or group B
         if (group == "A") or (group == "B"):
@@ -60,10 +55,7 @@ class PlotManager:
     
     def plot_cum_posterior(self, group, type, N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS):
 
-        try: 
-            parameter_name = self.parameter_name
-        except:
-            parameter_name = "Parameters"
+        parameter_name = self.get_parameter_name()
 
         # get list of appropriate posteriors
         rvs_data, pdf_data = self.get_post_data(group=group, para_range=para_range, N_sample=N_sample, N_pts=N_pts)
@@ -105,10 +97,9 @@ class PlotManager:
         return fig
 
     def plot_anim(self, group, N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS, interval=200, figsize=FIGSIZE):
-        try: 
-            parameter_name = self.parameter_name
-        except:
-            parameter_name = "Parameters"
+
+        parameter_name = self.get_parameter_name()
+
         rvs_data, pdf_data = self.get_post_data(group=group, para_range=para_range, N_sample=N_sample, N_pts=N_pts)
         if pdf_data is None:
             pdf_data = rvs_data
@@ -116,6 +107,18 @@ class PlotManager:
 
 
     def get_post_data(self, group, para_range=None, N_sample=N_SAMPLE, N_pts=N_PTS):
+        """
+        post process the posterior data for the given group to be used in plotting
+
+        Args:
+            group (str): _group_ can be "A", "B", "AB" or "diff"
+            para_range (list, optional): range of the model's parameters. Defaults to None.
+            N_sample (int, optional): number of samples to draw  from rvs. Defaults to N_SAMPLE.
+            N_pts (array, optional): number of parameter pts for pdf. Defaults to N_PTS.
+
+        Returns:
+            rvs list, pdf list
+        """
 
         if (group == "A") or (group == "B"):
             
@@ -141,7 +144,68 @@ class PlotManager:
             pdf_data = None
         
         return rvs_data, pdf_data
-        
 
     def get_parameter_range(self, rvs):
         return [np.min(rvs), max(rvs)]
+    
+    def get_parameter_name(self):
+        """
+        checkif base class has parameter_name attribute
+        if not, use default name "Parameters"
+        """
+        if hasattr(self, 'parameter_name'):
+            parameter_name = self.parameter_name
+        else:
+            parameter_name = "Parameters"
+        return parameter_name
+
+    def plot_bayesian_metrics(self, rope_interval, N_sample=N_SAMPLE, N_pts=N_PTS):
+        """
+        Plots Bayesian metrics (HDI, ROPE, MAP) against the number of experiments using Matplotlib.
+
+        Args:
+            group (str, optional): The group to plot metrics for ("A", "B" or "diff"). Defaults to "A".
+            N_sample (int, optional): Number of samples to generate. Defaults to N_SAMPLE.
+            N_pts (int, optional): Number of points for the PDF. Defaults to N_PTS.
+
+        Returns:
+            matplotlib.figure.Figure: The Matplotlib figure with Bayesian metrics.
+        """
+
+        # Initialize lists to store metrics
+        hdi_lower = []
+        hdi_upper = []
+        rope_values = []
+        map_values = []
+        prob_best = []
+        num_experiments = list(range(1, len(self.return_data("A")) + 1))
+
+        # get posteriors
+        rvs_data, _ = self.get_post_data(group="diff", N_sample=N_sample, para_range=None, N_pts=N_pts)
+        
+        # Calculate metrics for each number of experiments
+        for rvs in rvs_data:
+
+            rvs =  rvs[0]
+
+            # HDI
+            hdi_low, hdi_up = helper.hdi(rvs, level=0.95)
+            hdi_lower.append(hdi_low)
+            hdi_upper.append(hdi_up)
+
+            # ROPE
+            rope_values.append(self.rope(interval=rope_interval, group="diff"))
+
+            # MAP
+            map_values.append(bayesian_functions.map(rvs,  method='kde'))
+
+            # prob best
+            prob_best.append(bayesian_functions.prob_best(rvs))
+
+        fig1,  fig2 =  plot_functions.plot_bayesian_metrics(
+            num_experiments, hdi_lower, hdi_upper, rope_values, map_values, prob_best,
+            xlabel="Number of Experiments", ylabel="Metrics Value", 
+            title=f"Bayesian Metrics for A Vs B", rope_interval=rope_interval
+            )
+
+        return fig1,  fig2
