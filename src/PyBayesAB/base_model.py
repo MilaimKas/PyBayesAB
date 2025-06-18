@@ -173,4 +173,27 @@ class BayesianModel:
         result += self.bayesian_factor() + "\n\n"
 
         return result
+    
+    def __add__(self, other):
+        if not isinstance(other, BayesianModel):
+            raise ValueError("Can only add another BayesianModel instance")
+        
+        rvs_A = self.make_rvs(group="A")
+        rvs_B = other.make_rvs(group="B")
+        rvs_A_other = other.make_rvs(group="A")
+        rvs_B_self = self.make_rvs(group="B")
+
+        rvs_A_add = rvs_A + rvs_A_other
+        rvs_B_add = rvs_B + rvs_B_self
+
+        raise NotImplementedError("Addition of BayesianModel instances is not implemented yet")
+
+    def __div__(self, other):      
+        raise NotImplementedError("Division of BayesianModel instances is not implemented yet")
+    
+    def __mul__(self, other):
+        raise NotImplementedError("Multiplication of BayesianModel instances is not implemented yet")
+    
+    def __sub__(self, other):
+        raise NotImplementedError("Subtraction of BayesianModel instances is not implemented yet")
 
