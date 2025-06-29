@@ -114,6 +114,8 @@ class PoissonMixin:
         Returns:
             np.array, np.array: x values, y values
         """
+        if group not in ["A", "B"]:
+            raise ValueError("Group must be either 'A' or 'B' for pdf calculation.")
         a,b = self.get_parameters(parameters, group, data)
         if p_pts is None:
             if para_range is None:
