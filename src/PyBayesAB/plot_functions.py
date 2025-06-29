@@ -23,6 +23,30 @@ COLORS = [COL.get_rgb(i) for i in np.linspace(0,1,4)]
 # list of cmaps
 CMAPS = [helper.create_colormap_from_rgba(c) for c in COLORS] 
 
+def plot_data(data, label, xlabel="Experiments", ylabel="Values",
+              figsize=FIGSIZE, plot_kwargs={"linewidth":LINEWIDTH, "marker":"o", "markersize":5}):
+    """ Plot data from experiments as a line plot.  
+    Args:
+        data (list of np.array): List of arrays, each containing values for one experiment.
+        xlabel (str): Label for the x-axis.
+        ylabel (str): Label for the y-axis.
+        figsize (tuple): Size of the figure.
+        colors (list): List of colors for each group.
+        labels (list of str): Labels for each group.
+        plot_kwargs (dict): Additional keyword arguments for the plot.
+    Returns:
+        matplotlib.figure.Figure: The resulting figure.
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+    labels = [f"Group {label} {i + 1}" for i in range(len(data))]
+    for d, lab in zip(data, labels):
+        ax.plot(d, label=lab, **plot_kwargs)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.legend()
+    plt.close()
+    return fig
+
 def plot_posterior(rvs, pdf=None, xlabel="Parameter", labels=None, 
                    figsize=FIGSIZE, colors=COLORS, bins=N_BINS, 
                    sns_hist_kwargs={"alpha":0.6, "element":"step", "edgecolor":None}, 
@@ -337,6 +361,9 @@ def plot_bayesian_metrics(num_experiments, hdi_lower, hdi_upper, rope_values, ma
         # Plot ROPE as a horizontal line
         ax.fill_between(num_experiments, rope_interval[0], rope_interval[1],
                         color='green', alpha=0.2, label='ROPE Range')
+    
+    # add line  at  0
+    ax.axhline(0, color='black', linestyle='--', linewidth=1, label="_nolegend_")   
 
     # Add labels and legend
     ax.set_title('Bayesian Metrics vs Number of Experiments')
