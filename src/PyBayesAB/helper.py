@@ -2,8 +2,8 @@ import numpy as np
 
 import scipy.optimize as optimize
 from scipy import interpolate
-from scipy.stats import gamma, norm, gengamma, expon
-from scipy.special import gamma as gamma_func
+from scipy.stats import gamma, norm, invgamma
+from scipy.special import gamma as gamma_func, loggamma
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
@@ -214,42 +214,193 @@ class NormalGamma:
 		return t1*t2*t3*t4
 
 class NormInvGamma():
-	"""A normal inverse gamma random variable.
-	The mu (``mu``) keyword specifies the parmaeter mu.
-	Notes
-	-----
-	The probability density function for `norminvgamma` is:
-	.. math::
-		x = [\mu, \sigma^2]
-		f(x | \delta, \alpha, \beta, \lamda) = 
-				\sqrt(\frac{\lamda}{2 \pi x[\sigma^2}])
-				\frac{\beta^\alpha}{\gamma(\alpha)}
-				\frac{1}{x[\sigma^2]}^(\alpha + 1)
-				\exp(- \frac{2\beta + \lamda(x[\mu] - delta)^2}{2 x[\sigma^2] })
-		
-	for a real number :math:`x` and for positive number :math: `\sigma^2` > 0
-
-	ref: https://deebuls.github.io/devblog/probability/python/plotting/matplotlib/2020/05/19/probability-normalinversegamma.html
-	"""
-
-	def __init__(self, mu, kappa, a, b):
-
-		self.mu = mu
-		self.alpha = a
-		self.beta = b
-		self.kappa = kappa
-
-	def rvs(self, size=1000):
-		sigma_2 = gengamma.rvs(self.alpha, self.beta,  size=size)
-		sigma_2 = np.array(sigma_2)
-		return [norm.rvs(self.mu, scale=np.sqrt(s/self.kappa)) for s in sigma_2], np.sqrt(sigma_2)
-
-	def pdf(self, mu, sig):
-		t1 = ((self.kappa)**0.5) * ((self.beta)**self.alpha)
-		t2 = (sig * (2 * 3.15)**0.5) * gamma_func(self.alpha)
-		t3 = (1 / sig**2)**(self.alpha + 1)
-		t4 = expon.pdf((2*self.beta + self.kappa*(self.mu-mu)**2)/(2*sig**2))
-		return (t1/t2)*t3*t4
+    """A normal inverse gamma random variable.
+    
+    The Normal-Inverse-Gamma distribution is a conjugate prior for 
+    normal distributions with unknown mean and variance.
+    
+    Parameters:
+    -----------
+    mu : float
+        Location parameter (prior mean for the normal mean)
+    kappa : float  
+        Precision parameter (how much we trust the prior mean)
+    alpha : float
+        Shape parameter for inverse gamma (degrees of freedom / 2)
+    beta : float
+        Scale parameter for inverse gamma
+        
+    Notes
+    -----
+    The probability density function for `norminvgamma` is:
+    .. math::
+        f(μ, σ² | μ₀, κ, α, β) = 
+            √(κ/(2πσ²)) * (β^α/Γ(α)) * (1/σ²)^(α+1) * 
+            exp(-(2β + κ(μ - μ₀)²)/(2σ²))
+    """
+    
+    def __init__(self, mu, kappa, alpha, beta):
+        self.mu = mu        # μ₀ - prior mean
+        self.kappa = kappa  # κ - precision parameter  
+        self.alpha = alpha  # α - shape parameter
+        self.beta = beta    # β - scale parameter
+        
+        # Validate parameters
+        if kappa <= 0:
+            raise ValueError("kappa must be positive")
+        if alpha <= 0:
+            raise ValueError("alpha must be positive")  
+        if beta <= 0:
+            raise ValueError("beta must be positive")
+    
+    def rvs(self, size=1000):
+        """
+        Random value sampler for the Normal Inverse Gamma distribution.
+        
+        Args:
+            size (int, optional): number of samples. Defaults to 1000.
+            
+        Returns:
+            tuple: (mu_samples, sigma_samples) where:
+                - mu_samples: array of sampled means
+                - sigma_samples: array of sampled standard deviations
+        """
+        # Step 1: Sample σ² from Inverse-Gamma(α, β)
+        sigma_squared = invgamma.rvs(a=self.alpha, scale=self.beta, size=size)
+        
+        # Step 2: Sample μ from Normal(μ₀, σ²/κ) for each σ²
+        mu_samples = np.array([
+            norm.rvs(loc=self.mu, scale=np.sqrt(s2/self.kappa)) 
+            for s2 in sigma_squared
+        ])
+        
+        # Return both mu and sigma (not sigma²)
+        sigma_samples = np.sqrt(sigma_squared)
+        
+        return mu_samples, sigma_samples
+    
+    def pdf(self, mu, sigma):
+        """
+        Probability density function for the Normal Inverse Gamma distribution.
+        
+        Args:
+            mu (float or array): The mean parameter values
+            sigma (float or array): The standard deviation parameter values
+            
+        Returns:
+            float or array: The probability density function values
+        """
+        # Use logpdf and exponentiate for numerical stability
+        return np.exp(self.logpdf(mu, sigma))
+    
+    def logpdf(self, mu, sigma):
+        """
+        Log probability density function (numerically stable).
+        
+        Args:
+            mu (float or array): The mean parameter values  
+            sigma (float or array): The standard deviation parameter values
+            
+        Returns:
+            float or array: The log probability density function values
+        """
+        mu = np.asarray(mu)
+        sigma = np.asarray(sigma)
+        sigma_squared = sigma**2
+        
+        # Handle edge cases
+        if np.any(sigma <= 0):
+            return np.full_like(sigma, -np.inf)
+        
+        # Calculate log PDF components using stable computations
+        log_t1 = 0.5 * (np.log(self.kappa) - np.log(2 * np.pi) - np.log(sigma_squared))
+        log_t2 = self.alpha * np.log(self.beta) - loggamma(self.alpha)  # Use loggamma!
+        log_t3 = -(self.alpha + 1) * np.log(sigma_squared)
+        log_t4 = -(2*self.beta + self.kappa*(mu - self.mu)**2) / (2*sigma_squared)
+        
+        return log_t1 + log_t2 + log_t3 + log_t4
+    
+    def pdf_stable(self, mu, sigma):
+        """
+        Numerically stable PDF computation with overflow protection.
+        
+        Args:
+            mu (float or array): The mean parameter values
+            sigma (float or array): The standard deviation parameter values
+            
+        Returns:
+            float or array: The probability density function values
+        """
+        logpdf_val = self.logpdf(mu, sigma)
+        
+        # Clip extremely negative values to prevent underflow
+        logpdf_val = np.clip(logpdf_val, -700, 700)  # exp(-700) ≈ 10^-304
+        
+    def marginal_mu_pdf(self, mu_values):
+        """
+        Marginal PDF for mu (integrated over sigma).
+        This follows a t-distribution: t_{2α}(μ₀, β/(α·κ))
+        
+        Args:
+            mu_values (float or array): Values at which to evaluate the marginal PDF
+            
+        Returns:
+            float or array: Marginal PDF values for mu
+        """
+        from scipy.stats import t
+        
+        mu_values = np.asarray(mu_values)
+        
+        # Parameters for the t-distribution
+        df = 2 * self.alpha  # degrees of freedom
+        loc = self.mu        # location (mean)
+        scale = np.sqrt(self.beta / (self.alpha * self.kappa))  # scale
+        
+        return t.pdf(mu_values, df=df, loc=loc, scale=scale)
+    
+    def marginal_sigma_pdf(self, sigma_values):
+        """
+        Marginal PDF for sigma.
+        This is derived from the inverse-gamma distribution for sigma²
+        
+        Args:
+            sigma_values (float or array): Values at which to evaluate the marginal PDF
+            
+        Returns:
+            float or array: Marginal PDF values for sigma
+        """
+        sigma_values = np.asarray(sigma_values)
+        
+        # Handle edge cases
+        if np.any(sigma_values <= 0):
+            result = np.zeros_like(sigma_values, dtype=float)
+            result[sigma_values <= 0] = 0.0
+            valid_mask = sigma_values > 0
+            if np.any(valid_mask):
+                sigma_valid = sigma_values[valid_mask]
+                # PDF of sigma from sigma² ~ InvGamma(α, β)
+                # If Y ~ InvGamma(α, β), then √Y has PDF: 2y * InvGamma_pdf(y², α, β)
+                sigma_squared = sigma_valid**2
+                invgamma_pdf = invgamma.pdf(sigma_squared, a=self.alpha, scale=self.beta)
+                result[valid_mask] = 2 * sigma_valid * invgamma_pdf
+            return result
+        else:
+            sigma_squared = sigma_values**2
+            invgamma_pdf = invgamma.pdf(sigma_squared, a=self.alpha, scale=self.beta)
+            return 2 * sigma_values * invgamma_pdf
+    
+    def marginal_sigma_logpdf(self, sigma_values):
+        """
+        Log marginal PDF for sigma (numerically stable).
+        """
+        sigma_values = np.asarray(sigma_values)
+        
+        if np.any(sigma_values <= 0):
+            return np.full_like(sigma_values, -np.inf)
+        
+        sigma_squared = sigma_values**2
+        invgamma_logpdf = invgamma.logpdf(sigma_squared, a=self.alpha, scale=self.beta)
+        return np.log(2) + np.log(sigma_values) + invgamma_logpdf
 	
 def make_range(rvs):
 	min = np.min(rvs)
