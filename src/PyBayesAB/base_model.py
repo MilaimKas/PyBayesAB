@@ -5,6 +5,8 @@ from PyBayesAB import N_SAMPLE
 
 from scipy.stats import gaussian_kde
 
+# TODO: multiple call to make_rvs and make_pdf can be optimized by caching the results
+
 class BayesianModel:
 
     def __init__(self):
@@ -30,12 +32,12 @@ class BayesianModel:
         data = self.dataA if group == "A" else self.dataB
         data.append(value)
 
-    def make_rvs_diff(self, N_sample=N_SAMPLE):
-        rvs_A = self.make_rvs(group="A", N_sample=N_sample)
-        rvs_B = self.make_rvs(group="B", N_sample=N_sample)
+    def make_rvs_diff(self, N_sample=N_SAMPLE, post_kwargs={}):
+        rvs_A = self.make_rvs(group="A", N_sample=N_sample, **post_kwargs)
+        rvs_B = self.make_rvs(group="B", N_sample=N_sample, **post_kwargs)
         return rvs_A-rvs_B
 
-    def prob_best(self):
+    def prob_best(self, post_kwargs={}):
         """_summary_
 
         Args:
@@ -44,10 +46,10 @@ class BayesianModel:
         Returns:
             _type_: _description_
         """
-        rvs = self.make_rvs_diff()
+        rvs = self.make_rvs_diff(**post_kwargs)
         return 100*(np.mean(rvs > 0))
 
-    def hdi(self, group="diff", level=95, post_type="rvs", norm_app=False):
+    def hdi(self, group="diff", level=95, post_type="rvs", norm_app=False, post_kwargs={}):
         """_summary_
 
         Args:
@@ -57,14 +59,14 @@ class BayesianModel:
         if group=="diff" and post_type=="pdf":
             print("Warning: need rvs for hdi of difference. Will proceed using rvs.")
         if group=="diff":
-            post = self.make_rvs_diff()
+            post = self.make_rvs_diff(**post_kwargs)
         elif post_type=="pdf":
-            post = self.make_pdf(group=group)
+            post = self.make_pdf(group=group, **post_kwargs)
         else:
-            post = self.make_rvs(group=group)
+            post = self.make_rvs(group=group, **post_kwargs)
         return helper.hdi(post, level=level/100, norm_app=norm_app)
 
-    def rope(self, interval, group="diff"):
+    def rope(self, interval, group="diff", post_kwargs={}):
         """_summary_
 
         Args:
@@ -75,12 +77,12 @@ class BayesianModel:
             _type_: _description_
         """
         if group == "diff":
-            rvs = self.make_rvs_diff()
+            rvs = self.make_rvs_diff(**post_kwargs)
         else:
-            rvs = self.make_rvs(group=group)
+            rvs = self.make_rvs(group=group, **post_kwargs)
         return bayesian_functions.rope(rvs=rvs, interval=interval)*100
 
-    def rope_decision(self, rope_interval, level=95):
+    def rope_decision(self, rope_interval, level=95, post_kwargs={}):
         """_summary_
 
         Args:
@@ -88,9 +90,9 @@ class BayesianModel:
             rope_interval (_type_): _description_
             level (int, optional): _description_. Defaults to 95.
         """
-        return bayesian_functions.rope_decision(rvs=self.make_rvs_diff(), rope_interval=rope_interval, level=level)
+        return bayesian_functions.rope_decision(rvs=self.make_rvs_diff(**post_kwargs), rope_interval=rope_interval, level=level)
 
-    def map(self, method='median'):
+    def map(self, method='median', post_kwargs={}):
         """
         Estimates the Maximum A Posteriori (MAP) value from posterior samples.
 
@@ -101,13 +103,13 @@ class BayesianModel:
         Returns:
             float: MAP estimate based on the provided samples.
         """
-        rvs = self.make_rvs_diff()
+        rvs = self.make_rvs_diff(**post_kwargs)
         
         return bayesian_functions.map(rvs, method=method)
 
-    def bayesian_factor(self, H1=None, H0=None, prior=None, scale_factor=0.1):
+    def bayesian_factor(self, H1=None, H0=None, prior=None, scale_factor=0.1, post_kwargs={}):
         
-        rvs = self.make_rvs_diff()
+        rvs = self.make_rvs_diff(**post_kwargs)
 
         if H0 is None:
             # Use interquartile range (IQR) to dynamically set the scale
@@ -155,22 +157,23 @@ class BayesianModel:
                 The Bayes factor is {BF:.2f}, thus providing {text}
                 """
     
-    def summary_result(self, rope_interval, level):
+    def summary_result(self, rope_interval, level, post_kwargs={}):
 
-        result = ""
-        result += f"Probablity that A is better than B = {self.prob_best():.2f}% \n\n"
+        result = "Bayesian metrics summary: \n\n"
 
-        hdi = self.hdi(level=level)
-        result += f"There is 95% that the difference in Bernoulli probability is between {hdi[0]:.2f} and {hdi[1]:.2f} \n\n"
+        result += f"Probablity that A is better than B = {self.prob_best(post_kwargs=post_kwargs):.2f}% \n\n"
+
+        hdi = self.hdi(level=level, post_kwargs=post_kwargs)
+        result += f"There is 95% that the difference in {self.parameter_name} is between {hdi[0]:.2f} and {hdi[1]:.2f} \n\n"
 
         result += f"The MAP (maximum a posterior estimate) if {self.map():.2f} \n\n"
 
-        result += f"Probability that the difference is within the ROPE (region of practical equivalence) is {self.rope(interval=rope_interval):.1f}% \n\n"
+        result += f"Probability that the difference is within the ROPE (region of practical equivalence) is {self.rope(interval=rope_interval, post_kwargs=post_kwargs):.1f}% \n\n"
 
-        result += f"ROPE-based decision: {self.rope_decision(rope_interval, level=level)}  \n\n"
+        result += f"ROPE-based decision: {self.rope_decision(rope_interval, level=level, post_kwargs=post_kwargs)}  \n\n"
 
         result += "Bayes factor (A vs B vs null): \n"
-        result += self.bayesian_factor() + "\n\n"
+        result += self.bayesian_factor(H0=rope_interval, post_kwargs=post_kwargs) + "\n\n"
 
         return result
 
