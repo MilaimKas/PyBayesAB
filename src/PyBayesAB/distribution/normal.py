@@ -23,7 +23,7 @@ class NormKnownMeanMixin:
             prior = [1, 50]
 
         self.prior = prior
-        self.parameter_name = "Prescision"
+        self.parameter_name = "Precision"
 
     def tau2sig(self, tau):
         return np.sqrt(1/tau) if tau > 0 else np.inf
@@ -80,6 +80,8 @@ class NormKnownMeanMixin:
         return gamma.rvs(a, scale=1/b, size=N_sample)
     
     def make_pdf(self, parameters=None, data=None, group="A", p_pts=None, para_range=None):
+        if group not in ["A", "B"]:
+            raise ValueError("Group must be either 'A' or 'B' for pdf calculation.")
         a,b = self.get_parameters(parameters, group, data)
         if p_pts is None:
             if para_range is None:
@@ -119,37 +121,11 @@ class BaysNormKnownMean(NormKnownMeanMixin, BayesianModel, PlotManager):
         BayesianModel.__init__(self)
         NormKnownMeanMixin.__init__(self,mu=mean, prior=prior)
 
-class BaysNormKnownSTDMixin:
-    def __init__(self) -> None:
-        raise NotImplementedError()
-
-    def add_experiment(self, pts):
-        return
-    
-    def add_rand_experiment(self,n, mean):
-        return
-    
-    def post_pred(self, data=None):
-        return
-    
-    def post_parameters(self,data=None):
-        return
-    
-    def post_distr(self,data=None):
-        return
-    
-    def plot_tot(self, mean_lower, mean_upper, data=None, n_pdf=1000):
-        return
-    
-    def plot_anim(self, mean_lower, mean_upper, n_pdf=1000, data=None, interval=None):
-        return
-    
-
-class _BaysNormal:
-    def __init__(self, mu_prior=0, kappa_prior=1, alpha_prior=0.5, beta_prior=50):
+class NormMixin:
+    def __init__(self, prior=None):
         """
         Class for:
-        - likelihood = normal distribution with unknown mean and prescision
+        - likelihood = normal distribution with unknown mean and precision
         - prior and posterior = GammaNorm
 
         Contains ploting and animation function
@@ -161,23 +137,51 @@ class _BaysNormal:
             beta_prior (int, optional): .Defaults to 50
         """
 
+        if prior is None:
+            mu_prior = 0
+            kappa_prior = 1
+            alpha_prior = 0.5
+            beta_prior = 50
+        else:
+            if len(prior) != 4:
+                raise ValueError("NormMixin prior needs 4 parameters: mu, kappa, alpha, beta")
+            mu_prior, kappa_prior, alpha_prior, beta_prior = prior
+
         self.mu_prior = mu_prior
         self.kappa_prior = kappa_prior
         self.alpha_prior = alpha_prior
         self.beta_prior = beta_prior
 
         self.data = []
+        self.parameter_name = "Mean"
     
-    def add_experiment(self, pts):
+    def make_default_range(self, mu=None, alpha=None, beta=None, kappa=None, var="mu"):
         """
-        add an experiment (array of "measured" values) to the data
-
+        returns the default range for mu, which is mean +/- 3*std
+        and for std, which is mean +/- 3*std
         Args:
-            pts (np.array): array with measured values
+            mu (float, optional): mean. Defaults to None.
+            alpha (float, optional): alpha parameter of the NormalGamma distribution. Defaults to None.
+            beta (float, optional): beta parameter of the NormalGamma distribution. Defaults to None.
+            kappa (float, optional): kappa parameter of the NormalGamma distribution. Defaults to None.
+            var (str, optional): variable to return the range for. Defaults to "mu". Can be "mu", "std" or "both".
         """
-        self.data.append(pts)
-    
-    def add_rand_experiment(self,n,mu,sig):
+        if mu is None:
+            mu = self.mu_prior      
+        if alpha is None or beta is None or kappa is None:
+            alpha, beta, kappa = self.alpha_prior, self.beta_prior, self.kappa_prior
+        mean = mu
+        sig = np.sqrt(beta/(alpha*kappa))
+        if var == "mu":
+            return [mean - 3*sig, mean + 3*sig]
+        elif var == "std":
+            return [0, 3*sig]
+        elif var == "both":
+            return [[mean - 3*sig, mean + 3*sig], [0, 3*sig]]
+        else:
+            raise ValueError("var must be 'mu', 'std' or 'both'")
+       
+    def add_rand_experiment(self, n, mu, sig, group="A"):
         """
         add n random pts from a Normal distribution with mean mu and std sig
         to the data 
@@ -185,10 +189,11 @@ class _BaysNormal:
         Args:
             n (int): number of values
             mu (float): mean
-            tau (float): precision
+            sig (float): standard deviation
         """
-        self.data.append(norm.rvs(loc=mu, scale=sig, size=n))
-
+        experiment = norm.rvs(loc=mu, scale=sig, size=n)
+        self.add_experiment(experiment, group=group)
+    
     def post_pred(self, data=None):
         """
         returns the posterior predictive distribution which gives the probability for the next observation
@@ -214,128 +219,191 @@ class _BaysNormal:
         dof = 2*alpha
         return t(dof, loc=loc, scale=sig)
     
-    def post_parameters(self,data=None):
+    def post_parameters(self, group="A", data=None):
         """
-        return the parameter of the NormalGamma posterior given the data
+        return the parameter of the NormalGamma posterior given the (normal) data
 
         Returns:
             tuple: mu, kappa, alpha and beta value
         """
 
         if data is None:
-            n = len(self.data)
-            data = np.array( self.data, dtype="object").flatten()[0]
+            data = self.return_data(group)
+
+        data_flat =  np.concatenate(data).ravel()
+        n = len(data_flat)
+        if n == 0:
+            raise ValueError("No data available to calculate posterior parameters.")
+            
+        # Sample statistics
+        sample_mean = np.mean(data_flat)
+        sample_variance = np.var(data_flat, ddof=0)  # Use population variance
+        
+        # Posterior parameters
+        kappa_post = self.kappa_prior + n
+        mu_post = (self.kappa_prior * self.mu_prior + n * sample_mean) / kappa_post
+        alpha_post = self.alpha_prior + n / 2
+        beta_post = (self.beta_prior + 
+                    0.5 * n * sample_variance + 
+                    (self.kappa_prior * n * (sample_mean - self.mu_prior)**2) / (2 * kappa_post))
+    
+        return mu_post, kappa_post, alpha_post, beta_post
+
+    def get_parameters(self, group,  parameters=None, data=None):
+        """
+        Get the parameters for the Normal Inverse Gamma distribution.
+        If parameters are provided, they are used. Otherwise, the posterior parameters are calculated
+        based on the group and data.
+        """
+
+        if parameters is not None:
+            if len(parameters) != 4:
+                raise ValueError(f"Normal Inverse Gamma posterior needs 4 parameters: mu, kappa, alpha, beta. Got {parameters}.")
+            else:
+                mu, kappa, alpha, beta = parameters
         else:
-            n = len(data)
-
-        mean = np.mean(data)
-
-        kappa = self.kappa_prior+n
-        mu = (self.kappa_prior*self.mu_prior + n*mean)/kappa
-        alpha = self.alpha_prior+n/2
-        beta = self.beta_prior + 0.5*np.sum((data-mean)**2) + (self.kappa_prior*n*(mean-self.mu_prior)**2)/(2*kappa)
-
+            mu, kappa, alpha, beta = self.post_parameters(group=group, data=data)
+        
         return mu, kappa, alpha, beta
     
-    def post_distr(self,data=None):
+    def make_rvs(self, parameters=None, data=None, group="A", N_sample=N_SAMPLE, var="mu"):
         """
-        Return a Normal-Gamma distribution object with method pdf and rvs
-        using the parameters calculated from data.
-
-        Args:
-            data (array, optional): list of data values. If None, take self.data. Defaults to None.
-
-        Returns:
-            helper.Normgamma object
+        Generate random variates from the Normal Inverse Gamma distribution.    
         """
         
-        mu, kappa, alpha, beta = self.post_parameters(data)
-
-        return helper.NormInvGamma(mu, kappa, alpha, beta) 
-
-    def plot_tot(self, mu_lower, mu_upper, sig_lower, sig_upper, data=None, n_pdf=1000):
+        mu, kappa, alpha, beta = self.get_parameters(group, parameters, data)
+        rvs = helper.NormInvGamma(mu, kappa, alpha, beta).rvs(size=N_sample)
+        if var == "mu":
+            return  rvs[0]
+        elif var == "std":
+            return  rvs[1]
+        elif var == "both":
+            return rvs    
+         
+    def make_pdf(self, parameters=None, data=None, group="A", p_pts=None, para_range=None, var="mu"):
+        if group not in ["A", "B"]:
+            raise ValueError("Group must be either 'A' or 'B' for pdf calculation.")
+        mu, kappa, alpha, beta = self.get_parameters(group, parameters, data)
+        p_pts = self._get_pts_range(p_pts, para_range, var)
+        nig = helper.NormInvGamma(mu, kappa, alpha, beta)
+        if var == "mu":
+            return nig.marginal_mu_pdf(p_pts)
+        elif var == "std":
+            return nig.marginal_sigma_pdf(p_pts)
+        elif var == "both":
+            # joint pdf for mu and std
+            return nig.pdf(p_pts[0], p_pts[1])
+        
+    def make_cum_post_para(self, group="A"):
         """
-        Return a countour plot with the pdf as a function of mu and sig
-
-        Args:
-            mu_lower (float): lower value of mean to be plotted.
-            mu_upper (float): upper value of mean to be plotted.
-            sig_lower (float): lower value of standard deviation to be plotted.
-            sig_upper (float): upper value of standard deviation to be plotted.
-            data (list of np.array, optional): list of "experiments" containing the collected data. 
-                                               If None, self.data will be used. Defaults to None.
-            n_pdf (int, optional): number of pts for the pdf plot. Defaults to 1000.
+        Calculate the cumulative posterior parameters for the Normal Inverse Gamma distribution.
         """
+        data = self.return_data(group)
+        # cumulative mu, kappa, alpha, beta
+        mu_cum =  []
+        kappa_cum = []
+        a_cum = []
+        b_cum = []
+        a=self.alpha_prior
+        b=self.beta_prior
+        mu = self.mu_prior
+        kappa = self.kappa_prior
+        for i in range(len(data)):
+            n = len(data[i])
+            mean = np.mean(data[i])
+            mu = (kappa*mu + n*mean)/(kappa+n)
+            kappa += n
+            a += n/2
+            b += 0.5*np.sum((data[i]-mean)**2) + (kappa*n*(mean-self.mu_prior)**2)/(2*kappa)
+            mu_cum.append(mu)
+            kappa_cum.append(kappa)
+            a_cum.append(a)
+            b_cum.append(b)
+        return mu_cum, kappa_cum, a_cum, b_cum
 
-        mu = np.linspace(mu_lower,mu_upper,n_pdf)
-        sig = np.linspace(sig_lower,sig_upper,n_pdf)
-
-        MU, S = np.meshgrid(mu,sig)
-
-        m,k,a,b = self.post_parameters(data=data)
-        #post = helper.normalgamma(m,k,a,b)
-        post = helper.NormInvGamma(m,k,a,b)
-        post_pts = post.pdf(MU, S)
-
-        plt.contourf(MU, S, post_pts, cmap="Blues")
-        plt.pcolormesh(MU, S, post_pts, shading='auto', cmap="Blues", alpha=0.7)
-        plt.colorbar(label="Probabilty density")
-        plt.show()
+    def make_cum_posterior(self, group="A", N_sample=N_SAMPLE, para_range=None, var="mu", N_pts=N_PTS):
+        """
+        Create cumulative posterior distributions for the Normal Inverse Gamma distribution.
+        """
+        # create list of rvs and pdf
+        mu_cum, kappa_cum, a_cum, b_cum= self.make_cum_post_para(group=group)
+        p_pts = self._get_pts_range(None, para_range, var)
+        rvs_data = []
+        pdf_data = []
+        for mu, k, a,b in zip(mu_cum, kappa_cum, a_cum, b_cum):
+            rvs_data.append(self.make_rvs(parameters=[mu,  k, a, b], N_sample=N_sample, var=var))
+            pdf_data.append(self.make_pdf(parameters=[mu,  k, a, b], p_pts=p_pts, var=var))
+        return p_pts, rvs_data, pdf_data
     
-    def plot_anim(self, mu_lower, mu_upper, sig_lower, sig_upper, n_pdf=1000, data=None, interval=None):
-        
-        if data is None:
-            data = self.data
+    def _get_pts_range(self, p_pts, para_range, var, N_pts=N_PTS):
+        """
+        Get the points range for the pdf based on the variable type.
+        """
+        if p_pts is None:
+            if para_range is None:
+                para_range = self.make_default_range(var=var)
+                if var in ["mu", "std"]:
+                    p_pts = np.linspace(para_range[0], para_range[1], N_pts)
+                elif var == "both":
+                    p_pts = np.meshgrid(np.linspace(para_range[0][0], para_range[0][1], N_pts),
+                                    np.linspace(para_range[1][0], para_range[1][1], N_pts))
+            else:
+                if var in ["mu", "std"]:
+                    if len(para_range) != 2:
+                        raise ValueError("para_range must be a list of two values for mu and std")
+                    p_pts = np.linspace(para_range[0], para_range[1], N_pts)
+                elif var == "both":
+                    if len(para_range) != 2 or len(para_range[0]) != 2 or len(para_range[1]) != 2:
+                        raise ValueError("para_range must be a list of two lists, each containing the range for mu and std")
+                    p_pts = np.meshgrid(np.linspace(para_range[0][0], para_range[0][1], N_pts),
+                                    np.linspace(para_range[1][0], para_range[1][1], N_pts))
+        else:
+            if var in ["mu", "std"]:
+                if p_pts.ndim != 1:
+                    raise ValueError("p_pts must be a 1D array for mu or std")
+            elif var == "both":
+                if p_pts.ndim != 2 or p_pts[0].ndim != 1 or p_pts[1].ndim != 1:
+                    raise ValueError("p_pts must be a 2D meshgrid for mu and std")
 
-        plt.rcParams["animation.html"] = "jshtml"
-
-        if interval is None:
-            # default is 5s duration
-            interval = 5000/len(data)
-
-        # frame
-        fig, axs = plt.subplots(1)
-        fig.tight_layout()
-
-        m,k,a,b = self.post_parameters(data=data[0])
-        post = helper.NormInvGamma(m,k,a,b)
-        mu = np.linspace(mu_lower,mu_upper,n_pdf)
-        sig = np.linspace(sig_lower,sig_upper,n_pdf)
-        MU, S = np.meshgrid(mu,sig)
-        post_pts = post.pdf(MU, S)
-
-        # initialize posterior plot  
-        axs.set_xlabel("Mean")
-        axs.set_ylabel("Standard deviation")
-        axs.set_xlim(mu_lower,mu_upper)
-        axs.set_ylim(sig_lower, sig_upper)   
-        #axs.colorbar(label="Probabilty density")
-  
-        anim_contourf = axs.contourf(MU, S, post_pts, cmap="Blues")
-        anim_contour = axs.contour(MU, S, post_pts, cmap="Blues")
-
-        plt.close(fig)  # dont show initial plot
-
-        # animation function  
-        def animate(i):
-            # ref: https://brushingupscience.com/2019/08/01/elaborate-matplotlib-animations/
-            nonlocal anim_contourf, anim_contour
-
-            for cp,cm in zip(anim_contourf.collections, anim_contour.collections):
-                cp.remove()
-                cm.remove()
-            
-            # update posetrior
-            m,k,a,b = self.post_parameters(data=np.concatenate(data[0:i+1]).ravel())
-            post = helper.NormInvGamma(m,k,a,b)
-            post_pts = post.pdf(MU, S)
-
-            anim_contourf = axs.contourf(MU,S, post_pts, cmap="Blues") 
-            anim_contour = axs.contour(MU, S, post_pts, cmap="Blues")
-
-            return anim_contourf, anim_contour
+        return p_pts
+    
+class BaysNorm(NormMixin, BayesianModel, PlotManager):
+    def __init__(self, prior=None):
+        BayesianModel.__init__(self)
+        NormMixin.__init__(self, prior=prior)
 
 
-        # call the animator.  blit=True means only re-draw the parts that have changed.
-        return animation.FuncAnimation(fig, animate,
-                                frames=len(data), interval=interval, blit=False)
+
+
+
+if __name__ == "__main__":
+
+    import numpy as np
+
+    mu_A = 20
+    std_A = 10
+    tau_A = 1/std_A**2 
+    mu_B = 25
+    std_B = 12
+    tau_B = 1/std_B**2
+    normal = BaysNorm()
+    n_exp = 20
+    for i in range(n_exp):
+        n_data = np.random.randint(10,50)
+        normal.add_rand_experiment(mu_A, std_A, n_data, group="A")
+        normal.add_rand_experiment(mu_B, std_B, n_data, group="B")
+
+    # calculate some Bayesian metrics
+
+    ROPE = [-5, 5]  # Region of Practical Equivalence
+    print()
+    print(normal.summary_result(rope_interval=ROPE,level=95))
+    print()
+    
+    # check shape of posterior
+    print("Posterior parameters for group A:", normal.post_parameters(group="A"))
+    print("Shape of mu posterior for group A:", normal.make_rvs(group="A").shape)
+    print("HDI for mu group A:", normal.hdi(group="A", level=95))
+    print("Shape of std posterior for group A:", normal.make_rvs(group="A", var="std").shape)
+    print("HDI for std group A:", normal.hdi(group="A", level=95, post_kwargs={"var": "std"}))
+    print()
