@@ -177,7 +177,7 @@ class PlotManager:
         rope_values = []
         map_values = []
         prob_best = []
-        num_experiments = list(range(1, len(self.return_data("A")) + 1))
+        num_experiments = list(range(0, len(self.return_data("A")) + 1))
 
         # get posteriors
         rvs_data, _ = self.get_post_data(group="diff", N_sample=N_sample, para_range=None, N_pts=N_pts, **post_kwargs)
@@ -193,7 +193,7 @@ class PlotManager:
             hdi_upper.append(hdi_up)
 
             # ROPE
-            rope_values.append(self.rope(interval=rope_interval, group="diff"))
+            rope_values.append(bayesian_functions.rope(rvs=rvs, interval=rope_interval)*100)
 
             # MAP
             map_values.append(bayesian_functions.map(rvs,  method='kde'))
