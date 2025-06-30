@@ -137,6 +137,7 @@ class NormMixin:
             beta_prior (int, optional): .Defaults to 50
         """
 
+        # prior parameters
         if prior is None:
             mu_prior = 0
             kappa_prior = 1
@@ -300,10 +301,10 @@ class NormMixin:
         """
         data = self.return_data(group)
         # cumulative mu, kappa, alpha, beta
-        mu_cum =  []
-        kappa_cum = []
-        a_cum = []
-        b_cum = []
+        mu_cum =  [self.mu_prior]
+        kappa_cum = [self.kappa_prior]
+        a_cum = [self.alpha_prior]
+        b_cum = [self.beta_prior]
         a=self.alpha_prior
         b=self.beta_prior
         mu = self.mu_prior
