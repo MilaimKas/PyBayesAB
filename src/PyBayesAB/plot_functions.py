@@ -173,6 +173,11 @@ def plot_cumulative_posterior_2D_pdf(
         cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i]} Probability Density", orientation="vertical", pad=0.01)
         cbar.ax.tick_params(labelsize=8)
     
+    # make sure y is optimal
+    ymin = min(min(post_pdf[1][0].min(), post_pdf[1][1].min()))
+    ymax = max(max(post_pdf[1][0].max(), post_pdf[1][1][1].max()))
+    ax.set_ylim(ymin, ymax)
+    
     plt.xticks(ticks=x, labels=[int(xx) for xx in x])
     plt.xlabel("Experiments")
     plt.ylabel(ylabel)
@@ -329,6 +334,11 @@ def plot_cumulative_posterior_2D_rvs(
         cp = ax.contour(X, Y, Z, colors=[colors[i]]*contour_kwargs["levels"], zorder=2, **contour_kwargs)
         ax.clabel(cp, **clabel_kwargs)
 
+    # make  sure y is optimal
+    ymin = min(min(Z_list[1].min()))
+    ymax = max(max(Z_list[1].max()))
+    ax.set_ylim(ymin, ymax)
+
     # Add labels and title
     ax.set_xticks(exp_label)
     ax.set_xlabel("Experiments")
@@ -364,6 +374,11 @@ def plot_bayesian_metrics(num_experiments, hdi_lower, hdi_upper, rope_values, ma
     
     # add line  at  0
     ax.axhline(0, color='black', linestyle='--', linewidth=1, label="_nolegend_")   
+
+    # make sure y range is optimal. Not accounting for prior
+    ymin = min(hdi_lower[1:])
+    ymax = max(hdi_upper[1:])
+    ax.set_ylim(ymin - 0.1 * abs(ymin), ymax + 0.1 * abs(ymax))
 
     # Add labels and legend
     ax.set_title('Bayesian Metrics vs Number of Experiments')
