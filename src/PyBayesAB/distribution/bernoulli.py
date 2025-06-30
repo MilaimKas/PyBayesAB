@@ -124,9 +124,7 @@ class BernoulliMixin:
             group (str, optional): The experimental group to which the results
                 are added. Defaults to "A".
         """
-        hits = np.sum(bernoulli.rvs(p, size=n))
-        fails = n - hits
-        self.add_experiment([hits, fails], group=group)
+        self.add_experiment(bernoulli.rvs(p, size=n), group=group)
 
     def make_rvs(self, parameters=None, data=None, group="A", N_sample=N_SAMPLE):
         """
@@ -193,10 +191,11 @@ class BernoulliMixin:
             tuple: A tuple `(posterior_alpha, posterior_beta)`.
         """
         if data is None:
-            data = np.array(self.return_data(group))
-        a = np.sum(data[:, 0]) + self.prior[0]
-        b = np.sum(data[:, 1]) + self.prior[1]
-        return a,b
+            data = self.return_data(group)
+        data_flat = np.concatenate(data).ravel()
+        alpha = np.sum(data_flat) + self.prior[0]
+        beta = len(data_flat)  - alpha + self.prior[1]
+        return alpha, beta
 
     def make_cum_post_para(self, group="A"):
         """
@@ -215,19 +214,22 @@ class BernoulliMixin:
                    is a NumPy array of the cumulative parameters after each
                    experiment.
         """
-        data =  np.array(self.return_data(group))
-        if data.shape[0] == 0: # Handle case with no data
-            return np.array([self.prior[0]]), np.array([self.prior[1]])
-
-        # Make a copy to avoid modifying the original data stored in the object
-        data_copy = data.copy()
-        # add prior to the first data point's contribution
-        data_copy[0,0] += self.prior[0]
-        data_copy[0,1] += self.prior[1]
-        # cumulative hits and fails
-        cumsum_alpha = np.cumsum(data_copy[:,0])
-        cumsum_beta = np.cumsum(data_copy[:,1])
-        return cumsum_alpha,cumsum_beta
+        data = self.return_data(group)
+        if not data or len(data) == 0:
+            raise ValueError(f"No data available for group '{group}' to calculate cumulative posterior parameters.")
+        # cumulative alpha and beta value
+        cum_alpha = self.prior[0]  # initial alpha from prior
+        cum_beta = self.prior[1]    # initial beta from prior
+        alphas = np.zeros(len(data) + 1)
+        betas = np.zeros(len(data) + 1)   
+        alphas[0] = cum_alpha
+        betas[0] = cum_beta
+        for i in range(len(data)):
+            cum_alpha += np.sum(data[i])
+            cum_beta += len(data[i]) - np.sum(data[i])
+            alphas[i + 1] = cum_alpha
+            betas[i + 1] = cum_beta    
+        return alphas, betas
 
     def post_pred(self, size=1, group="A"):
         """
@@ -302,27 +304,8 @@ class BaysBernoulli(BernoulliMixin, BayesianModel, PlotManager):
     and then analyze the results using Bayesian inference, including calculating
     posterior distributions, probabilities of one group being better than another,
     credible intervals, and generating various plots.
-
-    Example:
-        >>> model = BaysBernoulli(prior_type='Jeffreys')
-        >>> # Group A: 100 successes (hits), 400 failures (out of 500 trials)
-        >>> model.add_experiment([100, 400], group="A")
-        >>> # Group B: 120 successes, 380 failures (out of 500 trials)
-        >>> model.add_experiment([120, 380], group="B")
-        >>>
-        >>> # Get posterior parameters for group A
-        >>> alpha_A, beta_A = model.post_parameters(group="A")
-        >>> print(f"Group A posterior: Beta({alpha_A:.2f}, {beta_A:.2f})")
-        >>>
-        >>> # Plot posterior distributions
-        >>> model.plot_final_posterior(group="A")
-        >>> model.plot_final_posterior(group="B")
-        >>> model.plot_final_posterior(group="diff") # Difference A-B
-        >>>
-        >>> # Probability that B is better than A
-        >>> prob_B_better_A = model.prob_best()["B"]
-        >>> print(f"Probability B is better than A: {prob_B_better_A:.2%}")
     """
+
     def __init__(self, prior_type="Bayes-Laplace"):
         """
         Initializes the BaysBernoulli model.
