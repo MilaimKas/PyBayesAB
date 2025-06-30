@@ -60,9 +60,7 @@ class PoissonMixin:
             n (in): number of intervals
             mu (float): Poisson mean
         """
-        n_events = poisson.rvs(mu, size=n)
-        for ev in n_events:
-            self.add_experiment(ev, group=group)
+        self.add_experiment(poisson.rvs(mu, size=n), group=group)
     
     def post_pred(self, size=1, group="A"):
         """
@@ -80,7 +78,8 @@ class PoissonMixin:
         return the parameters for the gamma posterior given the data
         """
         if data is None:
-            data = self.return_data(group)
+            data = np.concatenate(self.return_data(group)).ravel()
+
         a = sum(data)+self.prior[0]
         b = len(data)+self.prior[1]
 
@@ -126,16 +125,20 @@ class PoissonMixin:
     def make_cum_post_para(self, group="A"):
         data = self.return_data(group)
 
+        a_cum = self.prior[0]  # initial alpha from prior
+        b_cum = self.prior[1]  # initial beta from prior
+        alphas = [a_cum]
+        betas = [b_cum]
         # cumulative alpha and beta value
-        a_cum = np.zeros(len(data)+1)  # Fixed np.zero to np.zeros
-        a_cum[0] = self.prior[0]
-        a_cum[1:] = data
-        a_cum = np.cumsum(a_cum)
-
-        b_cum = np.zeros(len(data)+1)
-        b_cum[0] = self.prior[1]
-        b_cum[1:] = np.arange(1, len(data)+1)
-        return a_cum, b_cum
+        for i in range(len(data)):
+            a_cum += sum(data[i])  # sum of events in each group
+            b_cum += len(data[i])  # number of intervals in each group  
+            alphas.append(a_cum)
+            betas.append(b_cum)
+        # convert to numpy arrays for consistency
+        alphas = np.array(alphas)
+        betas = np.array(betas)
+        return alphas, betas
 
     def make_cum_posterior(self, group="A", N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS):
         # create list of rvs and pdf
