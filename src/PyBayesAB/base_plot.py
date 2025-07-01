@@ -69,26 +69,26 @@ class PlotManager:
 
             # 2D map plot
             if type == "2D":
-                fig = plot_functions.plot_cumulative_posterior_2D_pdf(pdf_data, ylabel=parameter_name, group_labels=group_labels)
+                fig = plot_functions.plot_cumulative_posterior_2D_pdf(pdf_data, ylabel=parameter_name, group_labels=group_labels, para_range=para_range)
             
             # 1D plot
             elif type == "1D":
-                fig = plot_functions.plot_cumulative_posterior_1D(rvs_data, pdf_data=pdf_data, xlabel=parameter_name, group_labels=group_labels)
+                fig = plot_functions.plot_cumulative_posterior_1D(rvs_data, pdf_data=pdf_data, xlabel=parameter_name, group_labels=group_labels, para_range=para_range)
 
             elif type == "3D":
-                fig = plot_functions.plot_cumulative_posterior_3D(rvs_data, pdf_data=pdf_data, xlabel=parameter_name, group_labels=group_labels)
+                fig = plot_functions.plot_cumulative_posterior_3D(rvs_data, pdf_data=pdf_data, xlabel=parameter_name, group_labels=group_labels, para_range=para_range)
         
         # plot posterior for the difference
         elif group == "diff":
 
             if type == "2D":
-                fig = plot_functions.plot_cumulative_posterior_2D_rvs(rvs_data, ylabel=parameter_name, group_labels=["diff"])
+                fig = plot_functions.plot_cumulative_posterior_2D_rvs(rvs_data, ylabel=parameter_name, group_labels=["diff"], para_range=para_range)
                 
             elif type == "1D":
-                fig = plot_functions.plot_cumulative_posterior_1D(rvs_data, pdf_data=None, xlabel=parameter_name, group_labels=["diff"])
+                fig = plot_functions.plot_cumulative_posterior_1D(rvs_data, pdf_data=None, xlabel=parameter_name, group_labels=["diff"], para_range=para_range)
 
             elif type == "3D":
-                fig = plot_functions.plot_cumulative_posterior_3D(rvs_data, xlabel=parameter_name, group_labels=["diff"])
+                fig = plot_functions.plot_cumulative_posterior_3D(rvs_data, xlabel=parameter_name, group_labels=["diff"], para_range=para_range)
             
         else:
             raise ValueError("group must be either 'A', 'B', 'diff' or 'AB'")
@@ -102,7 +102,7 @@ class PlotManager:
         rvs_data, pdf_data = self.get_post_data(group=group, para_range=para_range, N_sample=N_sample, N_pts=N_pts, **post_kwargs)
         if pdf_data is None:
             pdf_data = rvs_data
-        return plot_functions.animate_posterior(pdf_data, interval=interval, figsize=figsize, xlabel=parameter_name)
+        return plot_functions.animate_posterior(pdf_data, interval=interval, figsize=figsize, xlabel=parameter_name, para_range=para_range)
 
 
     def get_post_data(self, group, para_range=None, N_sample=N_SAMPLE, N_pts=N_PTS, **post_kwargs):
@@ -118,6 +118,9 @@ class PlotManager:
         Returns:
             rvs list, pdf list
         """
+
+        # check missing data
+        self._check_missing_data()
 
         if (group == "A") or (group == "B"):
             
