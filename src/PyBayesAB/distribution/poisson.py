@@ -38,18 +38,26 @@ class PoissonMixin:
             a,b = self.post_parameters(group=group, data=data)
         return a, b
     
-    def make_default_mu_range(self, a, b, percentile=0.9999):
+    def make_default_mu_range(self, a_cum, b_cum):
         """
-        mean + variance as max
+        make a default mu range for the gamma posterior given the cumulative parameters a and b.
         """
-        # Define the percentile bounds
-        lower_percentile = 1-percentile
-        upper_percentile = percentile
-
-        # Calculate the meaningful range
-        xmin = gamma.ppf(lower_percentile, a=a, scale=1/b)
-        xmax = gamma.ppf(upper_percentile, a=a, scale=1/b)
-        return [xmin, xmax]
+        # calculate the mean and standard deviation of all poserior distributions
+        if isinstance(a_cum, list):
+            a_cum = np.array(a_cum)
+        if isinstance(b_cum, list):
+            b_cum = np.array(b_cum)
+        mu_mean = a_cum / b_cum
+        mu_std = np.sqrt(a_cum) / b_cum
+        # create a range around the mean with 3 standard deviations
+        lower =  min(mu_mean - 3*mu_std)
+        upper = max(mu_mean + 3*mu_std)
+        # ensure the range is not negative  
+        if lower < 0:
+            lower = 0
+        if upper < lower:
+            upper = lower + 1
+        return [lower, upper]
     
     def add_rand_experiment(self, n, mu, group="A"):
         """
@@ -146,7 +154,7 @@ class PoissonMixin:
         rvs_data = []
         pdf_data = []
         if para_range is None:
-            para_range = self.make_default_mu_range(a_cum[-1], b_cum[-1])  # Fixed method call
+            para_range = self.make_default_mu_range(a_cum, b_cum)
         p_pts = np.linspace(para_range[0], para_range[1], N_pts)
         for a,b in zip(a_cum, b_cum):
             rvs_data.append(self.make_rvs(parameters=[a,b], N_sample=N_sample))
