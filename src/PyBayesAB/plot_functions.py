@@ -50,7 +50,8 @@ def plot_data(data, label, xlabel="Experiments", ylabel="Values",
 def plot_posterior(rvs, pdf=None, xlabel="Parameter", labels=None, 
                    figsize=FIGSIZE, colors=COLORS, bins=N_BINS, 
                    sns_hist_kwargs={"alpha":0.6, "element":"step", "edgecolor":None}, 
-                   plot_kwargs={"linewidth":LINEWIDTH}):
+                   plot_kwargs={"linewidth":LINEWIDTH},
+                   para_range=None):
     """
     Plot posterior distributions as histograms and/or PDFs.
     Args:
@@ -79,6 +80,9 @@ def plot_posterior(rvs, pdf=None, xlabel="Parameter", labels=None,
             sns.histplot(samples, bins=bins, stat="density", color=color, label=label, ax=ax, **sns_hist_kwargs)
             sns.kdeplot(samples, color=color, **plot_kwargs)
 
+    if para_range is not None:
+        ax.set_xlim(para_range)
+
     ax.set_xlabel(xlabel)
     ax.set_ylabel("Density")
     ax.legend()
@@ -90,7 +94,8 @@ def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,
                     xlabel="Parameter", bins=N_BINS, figsize=FIGSIZE, labels=None,
                     sns_hist_kwargs={"alpha":0.5, "element":"step", "kde_kws":{'linewidth': LINEWIDTH}, "edgecolor":None},
                     plot_kwargs={"linewidth":LINEWIDTH}, 
-                    group_labels=None):
+                    group_labels=None,
+                    para_range=None):
     
     fig, ax = plt.subplots(figsize=figsize)
     N_exp = len(rvs_data)
@@ -121,6 +126,9 @@ def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,
     fig.colorbar(mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(0, 1), cmap=plt_cm[0]),
              ax=ax, orientation='vertical', label="Experiments")
     
+    if para_range is not None:
+        ax.set_xlim(para_range)
+
     #plt.legend()
     plt.xlabel(xlabel)
     plt.ylabel("Probability density")
@@ -137,7 +145,8 @@ def plot_cumulative_posterior_2D_pdf(
     group_labels=["A", "B"],
     contour_kwargs={"levels":3, "alpha":1},
     colormesh_kwargs={"alpha":0.7}, 
-    clabel_kwargs={"inline":True, "fontsize":8}):
+    clabel_kwargs={"inline":True, "fontsize":8},
+    para_range=None):
 
     fig, ax = plt.subplots(figsize=figsize)
     plt.tight_layout()
@@ -172,12 +181,12 @@ def plot_cumulative_posterior_2D_pdf(
     for i, pcm in enumerate(pcolormesh_list):
         cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i]} Probability Density", orientation="vertical", pad=0.01)
         cbar.ax.tick_params(labelsize=8)
-    
-    # make sure y is optimal
-    ymin = min(min(post_pdf[1][0].min(), post_pdf[1][1].min()))
-    ymax = max(max(post_pdf[1][0].max(), post_pdf[1][1][1].max()))
-    ax.set_ylim(ymin, ymax)
-    
+
+    # find optimal y range given the posterior pdf
+    if para_range is None:
+        para_range = helper.get_optimal_xrange(post_pdf[1], param_pts)
+    ax.set_ylim(para_range)
+
     plt.xticks(ticks=x, labels=[int(xx) for xx in x])
     plt.xlabel("Experiments")
     plt.ylabel(ylabel)
@@ -192,6 +201,7 @@ def plot_cumulative_posterior_3D(rvs_data, pdf_data=None,
                     plt_bar_kwargs={"alpha":0.5},
                     plot_kwargs={"linewidth":1}, 
                     group_labels=None, 
+                    para_range=None,
                     scaled_space=4, view=(40, -50)):
     
     fig = plt.figure(figsize=figsize)
@@ -255,6 +265,10 @@ def plot_cumulative_posterior_3D(rvs_data, pdf_data=None,
     ax.set_xlabel("Experiments")
     ax.set_ylabel(xlabel)
 
+    # set y range 
+    if para_range is not None:
+        ax.set_ylim(para_range)
+
     # hide z axis and xy plane
     ax.zaxis.set_label_position('none')
     ax.zaxis.set_ticks_position('none')    
@@ -282,7 +296,8 @@ def plot_cumulative_posterior_2D_rvs(
     colors=COLORS, 
     contour_kwargs={"levels": 3, "alpha": 1},
     colormesh_kwargs={"alpha": 0.7}, 
-    clabel_kwargs={"inline": True, "fontsize": 8}
+    clabel_kwargs={"inline": True, "fontsize": 8},
+    para_range=None
 ):
     """
     Plot a 2D colormesh using samples of posteriors for successive experiments.
@@ -292,6 +307,7 @@ def plot_cumulative_posterior_2D_rvs(
         exp_label (list or np.array, optional): List of experiment indices or labels (x-axis).
         bins (int or array-like): Number of bins or specific bin edges for the histograms.
         ylabel (str, optional): Label for the y-axis (parameters). Defaults to "Parameter".
+        param_range (list, optional): Range for the y-axis. If None, it will be determined from the data.
     """
 
     fig, ax = plt.subplots(figsize=figsize)
@@ -335,9 +351,9 @@ def plot_cumulative_posterior_2D_rvs(
         ax.clabel(cp, **clabel_kwargs)
 
     # make  sure y is optimal
-    ymin = min(min(Z_list[1].min()))
-    ymax = max(max(Z_list[1].max()))
-    ax.set_ylim(ymin, ymax)
+    if para_range is None:
+        para_range = [bin_centers.min(), bin_centers.max()]
+    ax.set_ylim(para_range)
 
     # Add labels and title
     ax.set_xticks(exp_label)
@@ -408,8 +424,9 @@ def animate_posterior(post_data, interval=200,
                         group_labels=["A", "B"],
                         kwargs_post={"linewidth":2, "edgecolor":(0,0,0,1)}, 
                         kwargs_hdis= {"linewidth":2, "edgecolor":(0,0,0,0.7), "alpha":0.7},
-                        xlim=None, xlabel="Parameters", labels=None, n_pts=N_PTS, exp_label=None,
-                        norm_app=True):
+                        xlabel="Parameters", labels=None, n_pts=N_PTS, exp_label=None,
+                        norm_app=True,
+                        para_range=None):
     
     plt.rcParams["animation.html"] = "jshtml"
 
@@ -422,17 +439,17 @@ def animate_posterior(post_data, interval=200,
         n_exp = len(post_pts)
         ymax = max(helper.flatten_nested_list(post_pts[-1])) 
         ymin = min(helper.flatten_nested_list(post_pts[0]))
-        if xlim is None:
-            xlim = [min(min(p) for p in param_pts), max(max(p) for p in param_pts)]
+        if para_range is None:
+            para_range = [min(min(p) for p in param_pts), max(max(p) for p in param_pts)]
     else:
         type = "rvs"
         post_pts = post_data.copy()
         n_exp = len(post_pts)
         ymax = max(np.histogram(helper.flatten_nested_list(post_pts[-1]), bins=100, density=True)[0])
         ymin = min(np.histogram(helper.flatten_nested_list(post_pts[0]), bins=100, density=True)[0])
-        if xlim is None:
-            xlim = [min(helper.flatten_nested_list(post_pts[0])), max(helper.flatten_nested_list(post_pts[0]))]
-        param_pts = [np.linspace(xlim[0], xlim[1], n_pts)]
+        if para_range is None:
+            para_range = [min(helper.flatten_nested_list(post_pts[0])), max(helper.flatten_nested_list(post_pts[0]))]
+        param_pts = [np.linspace(para_range[0], para_range[1], n_pts)]
       
     # posterior distribution(s) and hdis
     lines = []
@@ -450,11 +467,11 @@ def animate_posterior(post_data, interval=200,
     axs[1].set_ylabel(xlabel)
     axs[1].set_xlabel("Experiments")
 
-    axs[0].set_xlim(xlim[0], xlim[1])
+    axs[0].set_xlim(para_range[0], para_range[1])
     axs[1].set_xlim(0, n_exp)
 
     axs[0].set_ylim(ymin, ymax)
-    axs[1].set_ylim(xlim[0], xlim[1])
+    axs[1].set_ylim(para_range[0], para_range[1])
 
     if labels is None:
         labels = [f"Group {group_labels[i]}" for i in range(len(lines)) ]
