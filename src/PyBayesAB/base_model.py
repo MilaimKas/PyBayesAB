@@ -5,6 +5,8 @@ from PyBayesAB import N_SAMPLE
 
 import  pandas as pd
 
+#TODO: define prior separately for different groups
+
 class BayesianModel:
 
     def __init__(self):
@@ -44,9 +46,6 @@ class BayesianModel:
         self.rvs_B = None   
         self.rvs_cum_A = None   
         self.rvs_cum_B = None   
-    
-    def __mul__(self, other):
-        return NotImplementedError
 
     def return_data(self, group):
         if group == "A":
