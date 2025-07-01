@@ -1,23 +1,53 @@
 import numpy as np
 
-from PyBayesAB import helper, plot_functions, bayesian_functions
+from PyBayesAB import helper, bayesian_functions
 from PyBayesAB import N_SAMPLE
 
-from scipy.stats import gaussian_kde
-
-# TODO: multiple call to make_rvs and make_pdf can be optimized by caching the results
+import  pandas as pd
 
 class BayesianModel:
 
     def __init__(self):
 
         self.dataA = []
-        self.dataB = []
+        self.dataB = []        
+
+        # cahche for posterior samples and pdfs
     
-    """
-    Data process and plotting 
-    """
+    def add_test_result(self, df:pd.DataFrame):
+        """
+        Store the result of the test from a DataFrame.
+
+        Args:
+            df (pd.DataFrame): DataFrame containing the test results with columns 'group', 'values', and 'experiment' or 'date'
+        """
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("Input must be a pandas DataFrame")
+        
+        if 'group' not in df.columns or 'values' not in df.columns:
+            raise ValueError("DataFrame must contain 'group' and 'values' columns")
+        
+        if 'experiment' not in df.columns and 'date' not in df.columns:
+            raise ValueError("DataFrame must contain either 'experiment' or 'date' column")
+        else:
+            experiment_col = 'experiment' if 'experiment' in df.columns else 'date'
+        
+        df.groupby([experiment_col, 'group'], sort=True)['values'].apply(list).reset_index(name='values').apply(
+            lambda row: self.add_experiment(values=row['values'], group=row['group']), axis=1)
+
+        # initialize cache
+        self._initialize_cache()
+
+    def _initialize_cache(self):
+        """Initialize the cache for posterior samples."""
+        self.rvs_A = None
+        self.rvs_B = None   
+        self.rvs_cum_A = None   
+        self.rvs_cum_B = None   
     
+    def __mul__(self, other):
+        return NotImplementedError
+
     def return_data(self, group):
         if group == "A":
             return self.dataA
@@ -25,36 +55,54 @@ class BayesianModel:
             return self.dataB
         else:
             raise ValueError("Group must be either 'A' or 'B'")
-        
-    def add_experiment(self, value, group="A"):
+    
+    def add_experiment(self, values, group="A"):
         if group not in ["A", "B"]:
             raise ValueError("Group must be 'A' or 'B'")
+        if not isinstance(values, (list, np.ndarray)):
+            values = [values]
         data = self.dataA if group == "A" else self.dataB
-        data.append(value)
+        data.append(values)
+        # re-initialize cache to ensure new data is considered in posterior calculations
+        self._initialize_cache()
+
+    def _check_missing_data(self):
+        if len(self.dataA) != len(self.dataB):  
+            print("WARNING: Data for groups A and B do not have the same number of experiments. Considering missing data as zero.")
+            # fill missing data with zeros
+            max_length = max(len(self.dataA), len(self.dataB))
+            self.dataA += [[]]*(max_length - len(self.dataA))
+            self.dataB += [[]]*(max_length - len(self.dataB))
 
     def make_rvs_diff(self, N_sample=N_SAMPLE, post_kwargs={}):
-        rvs_A = self.make_rvs(group="A", N_sample=N_sample, **post_kwargs)
-        rvs_B = self.make_rvs(group="B", N_sample=N_sample, **post_kwargs)
-        return rvs_A-rvs_B
+        if self.rvs_A is None or self.rvs_B is None:
+            #  check if dataA and dataB are same length
+            self._check_missing_data()
+            # make rvs for both groups
+            self.rvs_A = self.make_rvs(group="A", N_sample=N_sample, **post_kwargs)
+            self.rvs_B = self.make_rvs(group="B", N_sample=N_sample, **post_kwargs)
+        return self.rvs_A-self.rvs_B
 
     def prob_best(self, post_kwargs={}):
-        """_summary_
+        """
+        Get the probability that group A is better than group B.
 
         Args:
-            rvs (_type_): _description_
+            rvs (array): Samples from the posterior distribution.
 
         Returns:
-            _type_: _description_
+            float: Probability in percentage that group A is better than group B.
         """
         rvs = self.make_rvs_diff(**post_kwargs)
         return 100*(np.mean(rvs > 0))
 
     def hdi(self, group="diff", level=95, post_type="rvs", norm_app=False, post_kwargs={}):
-        """_summary_
+        """
+        Calculate the Highest Density Interval (HDI) for the posterior distribution.
 
         Args:
-            distribution (_type_): _description_
-            level (int, optional): _description_. Defaults to 95.
+            distribution (array or callable): Samples from the posterior distribution or a callable pdf function.
+            level (int, optional): level in percentage. Defaults to 95.
         """
         if group=="diff" and post_type=="pdf":
             print("Warning: need rvs for hdi of difference. Will proceed using rvs.")
@@ -67,14 +115,15 @@ class BayesianModel:
         return helper.hdi(post, level=level/100, norm_app=norm_app)
 
     def rope(self, interval, group="diff", post_kwargs={}):
-        """_summary_
+        """
+        Calculate the probability that the difference in parameters is within the ROPE (Region of Practical Equivalence).
 
         Args:
-            rvs (_type_): _description_
-            interval (_type_): _description_
+            rvs (array): Samples from the posterior distribution.   
+            interval (list): ROPE interval, e.g. [-1, 1] of the parameters.
 
         Returns:
-            _type_: _description_
+            float: Probability in percentage that the difference is within the ROPE interval.
         """
         if group == "diff":
             rvs = self.make_rvs_diff(**post_kwargs)
@@ -83,12 +132,13 @@ class BayesianModel:
         return bayesian_functions.rope(rvs=rvs, interval=interval)*100
 
     def rope_decision(self, rope_interval, level=95, post_kwargs={}):
-        """_summary_
+        """
+        Make a decision based on the ROPE (Region of Practical Equivalence) interval.
 
         Args:
-            rvs (_type_): _description_
-            rope_interval (_type_): _description_
-            level (int, optional): _description_. Defaults to 95.
+            rvs (array): Samples from the posterior distribution.
+            rope_interval (list): ROPE interval, e.g. [-1, 1] of the parameters.
+            level (int, optional): Level in percentage. Defaults to 95.
         """
         return bayesian_functions.rope_decision(rvs=self.make_rvs_diff(**post_kwargs), rope_interval=rope_interval, level=level)
 
@@ -108,7 +158,16 @@ class BayesianModel:
         return bayesian_functions.map(rvs, method=method)
 
     def bayesian_factor(self, H1=None, H0=None, prior=None, scale_factor=0.1, post_kwargs={}):
-        
+        """
+        Calculate the Bayes factor for the null hypothesis (H0) and alternative hypothesis (H1).
+        Args:
+            H1 (list, optional): Alternative hypothesis interval, e.g. [-1, 1]. Defaults to None.
+            H0 (list, optional): Null hypothesis interval, e.g. [-1, 1]. Defaults to None.
+            prior (list, optional): Prior distribution parameters. Defaults to None.        
+            scale_factor (float, optional): Factor to scale the interquartile range (IQR) for H0. Defaults to 0.1.
+        Returns:
+            str: A string summarizing the Bayes factor and the evidence it provides for H0 and H1.
+        """
         rvs = self.make_rvs_diff(**post_kwargs)
 
         if H0 is None:
@@ -158,6 +217,17 @@ class BayesianModel:
                 """
     
     def summary_result(self, rope_interval, level, post_kwargs={}):
+        """
+        Generate a summary of the Bayesian metrics.
+
+        Args:
+            rope_interval (list): ROPE interval, e.g. [-1, 1] of the parameters.
+            level (float): Confidence level for the HDI, e.g. 95.
+            post_kwargs (dict, optional): Additional args for the posterior calculation function. Defaults to {}.
+
+        Returns:
+            str
+        """
 
         result = "Bayesian metrics summary: \n\n"
 
@@ -177,3 +247,22 @@ class BayesianModel:
 
         return result
 
+if __name__ == "__main__":
+
+    model = BayesianModel()
+
+    # from data frame
+    data = pd.DataFrame({
+        'group': ['A', 'B', 'A', 'B', 'B'],
+        'values': [5, 7, 6, 8, 14],
+        'experiment': [1, 1, 2, 2, 1]
+    })  
+    model.add_test_result(data)
+    
+    model.add_experiment(values=[21, 9], group="A")
+    model.add_experiment(values=[75], group="A")   
+
+    print(model._check_missing_data())
+
+    print(model.dataA)
+    print(model.dataB) 
