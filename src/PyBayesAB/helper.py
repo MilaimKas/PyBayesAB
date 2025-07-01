@@ -491,3 +491,19 @@ def create_colormap_from_rgba(color, darker_factor=1, range=[0, 0.7]):
         full_cmap(np.linspace(range[0], range[1], 256))
     )
     return sliced_cmap
+
+def get_optimal_xrange(pdf_values, para_values, threshold_ratio=0.1):
+	# check length of pdf_values and para_values
+    if len(pdf_values) != len(para_values):
+        raise ValueError("pdf_values and para_values must have the same length")
+    x_min = np.inf
+    x_max = 0
+    for i in range(len(pdf_values)):
+        max_density = pdf_values[i].max()
+        threshold = max_density * threshold_ratio
+        x_valid = para_values[i][np.where(pdf_values[i] >= threshold)]
+        if x_valid.min() < x_min:
+            x_min = x_valid.min()
+        if x_valid.max() > x_max:   
+            x_max = x_valid.max()
+    return x_min, x_max
