@@ -34,7 +34,6 @@ from scipy.stats import bernoulli
 from PyBayesAB.base_model import BayesianModel  
 from PyBayesAB.base_plot import PlotManager  
 
-
 from PyBayesAB import N_SAMPLE, N_PTS
 
 PRIOR_TYPES = {
@@ -330,5 +329,17 @@ class BaysBernoulli(BernoulliMixin, BayesianModel, PlotManager):
         BernoulliMixin.__init__(self, prior=PRIOR_TYPES[prior_type])
 
 
+if __name__ == "__main__":
+    Bern_test = bernoulli.BaysBernoulli()
 
+    # create data for two groups
+    p_A = 0.21
+    p_B = 0.2
+    for n in range(20):
+        n_trial = np.random.randint(10,50)
+        Bern_test.add_rand_experiment(n_trial, p_A, group="A")
+        Bern_test.add_rand_experiment(n_trial, p_B, group="B")
+    
+    # Generate cumulative posterior distributions
+    p_pts, rvs_data, pdf_data = Bern_test.make_cum_posterior()
     

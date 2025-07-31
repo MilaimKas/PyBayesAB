@@ -166,3 +166,23 @@ class BaysPoisson(PoissonMixin, BayesianModel, PlotManager):
     def __init__(self, prior=[1,1]):
         BayesianModel.__init__(self)
         PoissonMixin.__init__(self,  prior=prior)
+
+
+if __name__ == "__main__":
+    # Example usage
+    # Create Likelihhod = Poisson object
+    Pois_test = poisson.BaysPoisson()
+
+    # create data
+    mu_A = 20
+    mu_B = 21
+    n_exp = 20
+    for next in range(n_exp):
+        n_events = np.random.randint(5, 10)
+        # add random experiment for group A and B
+        Pois_test.add_rand_experiment(n_events, mu_A)
+        Pois_test.add_rand_experiment(n_events, mu_B, group="B")
+    
+    Pois_test.make_rvs()
+    Pois_test.make_pdf()
+    Pois_test.make_cum_posterior()
