@@ -203,16 +203,47 @@ class MultinomMixin:
             rvs = dirichlet.rvs(a, size=N_sample)
             rvs_data.append(rvs)
         return rvs_data
+    
+    def make_posterior_dirichlet(self, group="A", N_sample=N_SAMPLE):
+        """
+        Generate posterior distribution of the Dirichlet distribution for the specified group.
+        """
+        alpha = self.post_parameters(group=group)
+        return dirichlet.rvs(alpha, size=N_sample)
 
     def plot_dirichlet_rvs(self, group="A", N_sample=N_SAMPLE):
-        """
-        Plot random variates from the Dirichlet distribution for the specified group.
-        """
-        rvs_data = self.make_cum_posterior_dirichlet(group=group, N_sample=N_sample)
-        plt.figure(figsize=(10, 6))
-        for i, rvs in enumerate(rvs_data):
-            plt.plot(rvs[:, 0], rvs[:, 1], 'o', alpha=0.5, label=f'Alpha {i+1}')
-        plt.title(f'Dirichlet Random Variates for Group {group}')
+
+        fig, ax = plt.subplots()
+
+        if group == "diff":
+            rvs_data_A = self.make_posterior_dirichlet(group="A", N_sample=N_sample)
+            rvs_data_B = self.make_posterior_dirichlet(group="B", N_sample=N_sample)
+            rvs = np.array(rvs_data_A) - np.array(rvs_data_B)
+            y_label= "Difference in probabilities (A - B)"
+            # plot 0 line
+            ax.axhline(0, color='black', linestyle='--', linewidth=0.5)
+        
+        if group in ["A", "B"]:
+            rvs = self.make_posterior_dirichlet(group=group, N_sample=N_sample)
+            y_label = f"Group {group} probabilities"
+        
+        # plot the Dirichlet rvs as lines by taking the max and min of each category
+        max_arr =  np.max(rvs, axis=0)
+        min_arr =  np.min(rvs, axis=0)  
+        ax.fill_between(np.arange(rvs.shape[1]), min_arr, max_arr, alpha=0.5, label=f"Group {group} Dirichlet rvs")
+        # plot the mean of the rvs
+        mean_arr = np.mean(rvs, axis=0)
+        ax.scatter(np.arange(rvs.shape[1]), mean_arr, color='blue', label="mean")
+        ax.plot(np.arange(rvs.shape[1]), mean_arr, color='blue', linestyle='--', linewidth=0.5)
+
+        # set xticks
+        ax.set_xticks(np.arange(rvs.shape[1]))
+        ax.set_xticklabels([f"Category {i}" for i in range(rvs.shape[1])])
+        
+        ax.set_xlabel("Categories")
+        ax.set_ylabel(y_label)
+
+        return fig
     
     
 class BaysMultinomial(MultinomMixin, BayesianModel, PlotManager):
@@ -242,3 +273,7 @@ if __name__ == "__main__":
 
     # Dirichlet rvs
     rvs_data_dirichlet = Multi_test.make_cum_posterior_dirichlet()
+
+    #plot Dirichlet rvs
+    fig = Multi_test.plot_dirichlet_rvs(group="diff", N_sample=1000)
+    plt.show(block=True)
