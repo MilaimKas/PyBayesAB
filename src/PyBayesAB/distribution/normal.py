@@ -375,8 +375,6 @@ class BaysNorm(NormMixin, BayesianModel, PlotManager):
 
 
 
-
-
 if __name__ == "__main__":
 
     import numpy as np
