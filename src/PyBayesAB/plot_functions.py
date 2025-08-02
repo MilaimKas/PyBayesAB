@@ -44,7 +44,7 @@ def plot_data(data, label, xlabel="Experiments", ylabel="Values",
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.legend()
-    plt.close()
+    #plt.close()
     return fig
 
 def plot_posterior(rvs, pdf=None, xlabel="Parameter", labels=None, 
@@ -86,7 +86,7 @@ def plot_posterior(rvs, pdf=None, xlabel="Parameter", labels=None,
     ax.set_xlabel(xlabel)
     ax.set_ylabel("Density")
     ax.legend()
-    plt.close()
+    #plt.close()
 
     return fig
 
@@ -132,7 +132,7 @@ def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,
     #plt.legend()
     plt.xlabel(xlabel)
     plt.ylabel("Probability density")
-    plt.close()
+    #plt.close()
     
     return fig
 
@@ -190,7 +190,7 @@ def plot_cumulative_posterior_2D_pdf(
     plt.xticks(ticks=x, labels=[int(xx) for xx in x])
     plt.xlabel("Experiments")
     plt.ylabel(ylabel)
-    plt.close()
+    #plt.close()
     #plt.legend()
 
     return fig
@@ -281,7 +281,7 @@ def plot_cumulative_posterior_3D(rvs_data, pdf_data=None,
     ax.view_init(*view)  # Prevents cut-off issues
     ax.set_box_aspect(aspect=(scaled_space, scaled_space/2, 1))
 
-    plt.close()
+    #plt.close()
     return fig
 
 
@@ -359,7 +359,7 @@ def plot_cumulative_posterior_2D_rvs(
     ax.set_xticks(exp_label)
     ax.set_xlabel("Experiments")
     ax.set_ylabel(ylabel)
-    plt.close()
+    #plt.close()
 
     return fig
 
