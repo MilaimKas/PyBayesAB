@@ -333,7 +333,10 @@ if __name__ == "__main__":
 
     # define composite posterior
     composite_model = multinomial_model[0]*normal_model1 + normal_model2*multinomial_model[1] + normal_model3*multinomial_model[2]
+    composite_model.parameter_name = "Composite Parameter"
+    
     # get some results
     print(composite_model.summary_result(rope_interval=[-1, 1], level=95))
     # some plots
-    fig = composite_model.plot_final_posterior(group="diff")
+    fig = composite_model.plot_final_posterior(group="diff", plot_kwargs={"para_range":[-20, 20]})
+    plt.show(block=True)
