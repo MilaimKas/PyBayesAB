@@ -234,7 +234,10 @@ class MultinomMixin:
         # plot the mean of the rvs
         mean_arr = np.mean(rvs, axis=0)
         ax.scatter(np.arange(rvs.shape[1]), mean_arr, color='blue', label="mean")
-        ax.plot(np.arange(rvs.shape[1]), mean_arr, color='blue', linestyle='--', linewidth=0.5)
+        ax.plot(np.arange(rvs.shape[1]), mean_arr, color='blue', linestyle='--', linewidth=0.5)    
+        # add confidence intervals as error bars
+        ci_lower, ci_upper = np.percentile(rvs, [5, 95], axis=0)
+        ax.errorbar(np.arange(rvs.shape[1]), mean_arr, yerr=[mean_arr - ci_lower, ci_upper - mean_arr], fmt='o', color='blue', label="95% CI", capsize=5)
 
         # set xticks
         ax.set_xticks(np.arange(rvs.shape[1]))
@@ -245,11 +248,34 @@ class MultinomMixin:
 
         return fig
     
-    
 class BaysMultinomial(MultinomMixin, BayesianModel, PlotManager):
     def __init__(self, prior=None):
         BayesianModel.__init__(self)
         MultinomMixin.__init__(self, prior=prior)
+    
+    def __getitem__(self, idx):
+        return MultinomialMarginalComponent(self, idx)
+
+class MultinomialMarginalComponent(BayesianModel):
+    """
+    Marginal component for a specific category of the multinomial distribution.
+    This class allows for the calculation of the marginal posterior distribution for a specific category.
+    It inherits from BayesianModel and uses the parent model to access the data and parameters.
+    """
+    def __init__(self, parent_model, category_idx):
+        self.parent = parent_model
+        self.category_idx = category_idx
+
+    def make_rvs_diff(self, N_sample=N_SAMPLE):
+        return self.parent.make_rvs(group="A", category_idx=self.category_idx, N_sample=N_sample) - \
+               self.parent.make_rvs(group="B", category_idx=self.category_idx, N_sample=N_sample)
+
+    def make_rvs(self, group="A", N_sample=N_SAMPLE):
+        return self.parent.make_rvs(group=group, category_idx=self.category_idx, N_sample=N_sample)
+
+    def make_pdf(self, group="A", **kwargs):
+        return self.parent.make_pdf(group=group, category_idx=self.category_idx, **kwargs)
+
 
 
 
