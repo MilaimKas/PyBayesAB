@@ -1,11 +1,13 @@
 import numpy as np
 
 from PyBayesAB import helper, bayesian_functions
+from PyBayesAB.base_plot import PlotManager
 from PyBayesAB import N_SAMPLE
 
 import  pandas as pd
 
 #TODO: define prior separately for different groups
+
 
 class BayesianModel:
 
@@ -246,28 +248,49 @@ class BayesianModel:
 
         return result
     
+    def __mul__(self, other):
+        return CompositePosterior(op='mul', models=[self, other])
+
     def __add__(self, other):
-        if not isinstance(other, BayesianModel):
-            raise ValueError("Can only add another BayesianModel instance")
-        
-        rvs_A = self.make_rvs(group="A")
-        rvs_B = other.make_rvs(group="B")
-        rvs_A_other = other.make_rvs(group="A")
-        rvs_B_self = self.make_rvs(group="B")
-
-        rvs_A_add = rvs_A + rvs_A_other
-        rvs_B_add = rvs_B + rvs_B_self
-
-        raise NotImplementedError("Addition of BayesianModel instances is not implemented yet")
+        return CompositePosterior(op='add', models=[self, other])
 
     def __div__(self, other):      
-        raise NotImplementedError("Division of BayesianModel instances is not implemented yet")
-    
-    def __mul__(self, other):
-        raise NotImplementedError("Multiplication of BayesianModel instances is not implemented yet")
+        return CompositePosterior(op='div', models=[self, other])
     
     def __sub__(self, other):
-        raise NotImplementedError("Subtraction of BayesianModel instances is not implemented yet")
+        return CompositePosterior(op='sub', models=[self, other])
+
+class CompositePosterior(BayesianModel, PlotManager):
+    """
+    Composite posterior model that combines multiple Bayesian models.    
+    This class allows for operations like addition and multiplication of posterior distributions from different models.
+    It can be used to create complex models by combining simpler ones.
+    """
+    def __init__(self, op, models, parameter_name=None):
+        self.op = op  # 'mul' or 'add'
+        self.models = models
+        if parameter_name is None:
+            self.parameter_name = "Composite Parameter"
+
+    def make_rvs_diff(self, N_sample=N_SAMPLE, post_kwargs={}):
+        diffs = [model.make_rvs_diff(N_sample=N_sample) for model in self.models]
+
+        if self.op == 'add':
+            return np.sum(diffs, axis=0)
+        elif self.op == 'mul':
+            out = diffs[0]
+            for d in diffs[1:]:
+                out *= d
+            return out
+        else:
+            raise ValueError("Invalid operation in CompositePosterior")
+
+    def make_rvs(self, group="diff", N_sample=N_SAMPLE):
+        if group != "diff":
+            print("Warning: make_rvs for group other than 'diff' is not implemented in CompositePosterior. Will return difference.")
+        return self.make_rvs_diff(N_sample=N_sample)
+
+
 
 if __name__ == "__main__":
 
@@ -284,7 +307,33 @@ if __name__ == "__main__":
     model.add_experiment(values=[21, 9], group="A")
     model.add_experiment(values=[75], group="A")   
 
-    print(model._check_missing_data())
+    print("Missing data check (if True):")
+    model._check_missing_data()
+    print()
 
-    print(model.dataA)
-    print(model.dataB) 
+    # check composite model
+
+    from PyBayesAB.distribution import multinomial, normal
+    import matplotlib.pyplot as plt
+    
+    # define mutlinomial model with 3 categories
+    multinomial_model = multinomial.BaysMultinomial(prior=[1, 1, 1])
+    multinomial_model.add_experiment(values=[10, 20, 30], group="A")
+    multinomial_model.add_experiment(values=[15, 25, 35], group="B")
+    # define 3 normal models
+    normal_model1 = normal.BaysNorm()
+    normal_model1.add_experiment(values=5, group="A")
+    normal_model1.add_experiment(values=7, group="B")
+    normal_model2 = normal.BaysNorm()
+    normal_model2.add_experiment(values=6, group="A")
+    normal_model2.add_experiment(values=8, group="B")
+    normal_model3 = normal.BaysNorm()
+    normal_model3.add_experiment(values=9, group="A")
+    normal_model3.add_experiment(values=11, group="B")
+
+    # define composite posterior
+    composite_model = multinomial_model[0]*normal_model1 + normal_model2*multinomial_model[1] + normal_model3*multinomial_model[2]
+    # get some results
+    print(composite_model.summary_result(rope_interval=[-1, 1], level=95))
+    # some plots
+    fig = composite_model.plot_final_posterior(group="diff")
