@@ -8,7 +8,7 @@ class PlotManager:
     
     #def __init__(self):
 
-    def plot_final_posterior(self, group, N_sample=N_SAMPLE, N_pts=N_PTS, para_range=None, plot_kwargs={}, post_kwargs={}):
+    def plot_final_posterior(self, group="diff", N_sample=N_SAMPLE, N_pts=N_PTS, para_range=None, plot_kwargs={}, post_kwargs={}):
         """
         plot the posterior distribution for the total result
 
@@ -30,9 +30,7 @@ class PlotManager:
 
         # plot difference of posteriors
         elif group == "diff":
-            rvs_A = self.make_rvs(group="A", N_sample=N_sample, **post_kwargs) 
-            rvs_B = self.make_rvs(group="B", N_sample=N_sample, **post_kwargs)
-            rvs_diff = rvs_A-rvs_B
+            rvs_diff = self.make_rvs_diff(N_sample=N_sample, post_kwargs=post_kwargs)
             fig = plot_functions.plot_posterior([rvs_diff], labels=["A-B"], xlabel="Difference in "+parameter_name, 
                                                 **plot_kwargs)
 
