@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import dirichlet, beta
 from scipy.stats import multinomial
 
-from PyBayesAB import N_SAMPLE, N_PTS
+from PyBayesAB.config import N_SAMPLE, N_PTS
 
 from PyBayesAB.base_model import BayesianModel  
 from PyBayesAB.base_plot import PlotManager  
@@ -97,7 +97,7 @@ class MultinomMixin:
                 
         return counts + self.prior
     
-    def get_parameters(self, group,  parameters=None, data=None):
+    def _get_parameters(self, group,  parameters=None, data=None):
         if parameters is not None:
             if len(parameters) != len(self.prior):
                 raise ValueError("Dirichlt parameter length  must be equal to prior length")
@@ -114,7 +114,7 @@ class MultinomMixin:
         Args:
             parameters (array, optional): alpha array parameter. Defaults to None.
         """
-        alpha = self.get_parameters(group, parameters, data)
+        alpha = self._get_parameters(group, parameters, data)
         a_i = alpha[category_idx]
         a_rest = alpha.sum() - a_i
         return beta.rvs(a_i, a_rest, size=N_sample)
@@ -126,7 +126,7 @@ class MultinomMixin:
         Args:
             parameters (array, optional): alpha array parameter. Defaults to None.
         """
-        alpha = self.get_parameters(group, parameters, data)
+        alpha = self._get_parameters(group, parameters, data)
         return dirichlet.rvs(alpha, size=N_sample)
     
     def make_pdf(self, category_idx=0, parameters=None, data=None, group="A", p_pts=None, para_range=None, var="mu"):
@@ -147,7 +147,7 @@ class MultinomMixin:
         if group not in ["A", "B"]:
             raise ValueError("Group must be either 'A' or 'B' for pdf calculation.")
         
-        alpha = self.get_parameters(group, parameters, data)
+        alpha = self._get_parameters(group, parameters, data)
         
         if p_pts is None:
             if para_range is None:

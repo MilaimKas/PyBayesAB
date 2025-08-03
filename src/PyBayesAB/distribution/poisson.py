@@ -5,7 +5,7 @@ from scipy.stats import gamma, poisson, nbinom
 from PyBayesAB.base_model import BayesianModel  
 from PyBayesAB.base_plot import PlotManager  
 
-from PyBayesAB import N_SAMPLE, N_PTS
+from PyBayesAB.config import N_SAMPLE, N_PTS
 
 PARA_RANGE=[0, np.inf]
 
@@ -28,7 +28,7 @@ class PoissonMixin:
         self.prior = prior
         self.parameter_name = "Poisson mean"
 
-    def get_parameters(self, parameters, group, data):
+    def _get_parameters(self, parameters, group, data):
         if parameters is not None:
             if len(parameters) != 2:
                 raise ValueError("Gamma posterior needs 2 parameters: alpha and beta")
@@ -38,20 +38,20 @@ class PoissonMixin:
             a,b = self.post_parameters(group=group, data=data)
         return a, b
     
-    def make_default_mu_range(self, a_cum, b_cum):
+    def make_default_mu_range(self, a, b):
         """
-        make a default mu range for the gamma posterior given the cumulative parameters a and b.
+        make a default mu range for the gamma posterior given the parameters a and b. If list or array is given, use the last element.
         """
         # calculate the mean and standard deviation of all poserior distributions
-        if isinstance(a_cum, list):
-            a_cum = np.array(a_cum)
-        if isinstance(b_cum, list):
-            b_cum = np.array(b_cum)
-        mu_mean = a_cum / b_cum
-        mu_std = np.sqrt(a_cum) / b_cum
+        if isinstance(a, (list, np.ndarray)):
+            a = a[-1]
+        if isinstance(b, (list, np.ndarray)):
+            b = b[-1]
+        mu_mean = a / b
+        mu_std = np.sqrt(a) / b
         # create a range around the mean with 3 standard deviations
-        lower =  min(mu_mean - 3*mu_std)
-        upper = max(mu_mean + 3*mu_std)
+        lower =  mu_mean - 3*mu_std
+        upper = mu_mean + 3*mu_std
         # ensure the range is not negative  
         if lower < 0:
             lower = 0
@@ -105,7 +105,7 @@ class PoissonMixin:
         Returns:
             _type_: _description_
         """
-        a,b = self.get_parameters(parameters, group, data)
+        a,b = self._get_parameters(parameters, group, data)
         return gamma.rvs(a, scale=1/b, size=N_sample)
     
     def make_pdf(self, parameters=None, data=None, group="A", p_pts=None, para_range=None):
@@ -123,7 +123,7 @@ class PoissonMixin:
         """
         if group not in ["A", "B"]:
             raise ValueError("Group must be either 'A' or 'B' for pdf calculation.")
-        a,b = self.get_parameters(parameters, group, data)
+        a,b = self._get_parameters(parameters, group, data)
         if p_pts is None:
             if para_range is None:
                 para_range = self.make_default_mu_range(a, b)
@@ -161,7 +161,6 @@ class PoissonMixin:
             pdf_data.append(self.make_pdf(parameters=[a,b], p_pts=p_pts))
         return p_pts, rvs_data, pdf_data
 
-
 class BaysPoisson(PoissonMixin, BayesianModel, PlotManager):
     def __init__(self, prior=[1,1]):
         BayesianModel.__init__(self)
@@ -169,9 +168,13 @@ class BaysPoisson(PoissonMixin, BayesianModel, PlotManager):
 
 
 if __name__ == "__main__":
+
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
     # Example usage
     # Create Likelihhod = Poisson object
-    Pois_test = poisson.BaysPoisson()
+    Pois_test = BaysPoisson()
 
     # create data
     mu_A = 20
@@ -186,3 +189,18 @@ if __name__ == "__main__":
     Pois_test.make_rvs()
     Pois_test.make_pdf()
     Pois_test.make_cum_posterior()
+
+    # Generate some Poisson data as pandas dataframe
+    data = pd.DataFrame({
+        'group': ['A', 'B', 'A', 'B', 'B'],
+        'values': [5, 7, 6, 8, 14],
+        'experiment': [1, 1, 2, 2, 1]
+    })  
+
+    # create a model for Poisson data   
+    Pois_test = BaysPoisson()
+    # add the data
+    Pois_test.add_test_result(data)
+    # plot
+    fig = Pois_test.plot_cum_posterior()
+    plt.show()

@@ -34,7 +34,7 @@ from scipy.stats import bernoulli
 from PyBayesAB.base_model import BayesianModel  
 from PyBayesAB.base_plot import PlotManager  
 
-from PyBayesAB import N_SAMPLE, N_PTS
+from PyBayesAB.config import N_SAMPLE, N_PTS
 
 PRIOR_TYPES = {
     'Bayes-Laplace': [1, 1],
@@ -78,7 +78,7 @@ class BernoulliMixin:
         self.prior = prior
         self.parameter_name = "Bernoulli probability"
 
-    def get_parameters(self, parameters, group, data):
+    def _get_parameters(self, parameters, group, data):
         """
         Retrieves the Beta distribution parameters (alpha, beta).
 
@@ -144,7 +144,7 @@ class BernoulliMixin:
             numpy.ndarray: An array of `N_sample` random variates from the
                            Beta posterior.
         """
-        a,b = self.get_parameters(parameters, group, data)
+        a,b = self._get_parameters(parameters, group, data)
         return beta.rvs(a,b,size=N_sample)
 
     def make_pdf(self, parameters=None, data=None, group="A", p_pts=None, para_range=PARA_RANGE):
@@ -167,7 +167,7 @@ class BernoulliMixin:
         Returns:
             numpy.ndarray: The PDF values evaluated at `p_pts`.
         """
-        a,b = self.get_parameters(parameters, group, data)
+        a,b = self._get_parameters(parameters, group, data)
         if p_pts is None:
             p_pts = np.linspace(para_range[0], para_range[1], N_PTS)
         return beta.pdf(p_pts,a,b)
@@ -192,8 +192,12 @@ class BernoulliMixin:
         if data is None:
             data = self.return_data(group)
         data_flat = np.concatenate(data).ravel()
-        alpha = np.sum(data_flat) + self.prior[0]
-        beta = len(data_flat)  - alpha + self.prior[1]
+        
+        sum_data = np.sum(data_flat)
+        len_data = len(data_flat)
+        
+        alpha = sum_data + self.prior[0]
+        beta = len_data - sum_data + self.prior[1]
         return alpha, beta
 
     def make_cum_post_para(self, group="A"):

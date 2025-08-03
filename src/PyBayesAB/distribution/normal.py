@@ -12,7 +12,7 @@ from PyBayesAB.base_model import BayesianModel
 from PyBayesAB.base_plot import PlotManager  
 from PyBayesAB import helper
 
-from PyBayesAB import N_SAMPLE, N_PTS
+from PyBayesAB.config import N_SAMPLE, N_PTS
 
 class NormKnownMeanMixin:
 
@@ -31,7 +31,7 @@ class NormKnownMeanMixin:
     def sig2tau(self, sig):
         return 1/sig**2 if sig > 0 else np.inf
     
-    def get_parameters(self, parameters, group, data):
+    def _get_parameters(self, parameters, group, data):
         if parameters is not None:
             if len(parameters) != 2:
                 raise ValueError("Gamma posterior needs 2 parameters: alpha and beta")
@@ -76,13 +76,13 @@ class NormKnownMeanMixin:
         return a, b
 
     def make_rvs(self, parameters=None, data=None, group="A", N_sample=N_SAMPLE):
-        a, b = self.get_parameters(parameters, group, data)
+        a, b = self._get_parameters(parameters, group, data)
         return gamma.rvs(a, scale=1/b, size=N_sample)
     
     def make_pdf(self, parameters=None, data=None, group="A", p_pts=None, para_range=None):
         if group not in ["A", "B"]:
             raise ValueError("Group must be either 'A' or 'B' for pdf calculation.")
-        a,b = self.get_parameters(parameters, group, data)
+        a,b = self._get_parameters(parameters, group, data)
         if p_pts is None:
             if para_range is None:
                 para_range = self.make_default_tau_range(a, b)
@@ -250,7 +250,7 @@ class NormMixin:
     
         return mu_post, kappa_post, alpha_post, beta_post
 
-    def get_parameters(self, group,  parameters=None, data=None):
+    def _get_parameters(self, group,  parameters=None, data=None):
         """
         Get the parameters for the Normal Inverse Gamma distribution.
         If parameters are provided, they are used. Otherwise, the posterior parameters are calculated
@@ -272,7 +272,7 @@ class NormMixin:
         Generate random variates from the Normal Inverse Gamma distribution.    
         """
         
-        mu, kappa, alpha, beta = self.get_parameters(group, parameters, data)
+        mu, kappa, alpha, beta = self._get_parameters(group, parameters, data)
         rvs = helper.NormInvGamma(mu, kappa, alpha, beta).rvs(size=N_sample)
         if var == "mu":
             return  rvs[0]
@@ -284,7 +284,7 @@ class NormMixin:
     def make_pdf(self, parameters=None, data=None, group="A", p_pts=None, para_range=None, var="mu"):
         if group not in ["A", "B"]:
             raise ValueError("Group must be either 'A' or 'B' for pdf calculation.")
-        mu, kappa, alpha, beta = self.get_parameters(group, parameters, data)
+        mu, kappa, alpha, beta = self._get_parameters(group, parameters, data)
         p_pts = self._get_pts_range(p_pts, para_range, var)
         nig = helper.NormInvGamma(mu, kappa, alpha, beta)
         if var == "mu":

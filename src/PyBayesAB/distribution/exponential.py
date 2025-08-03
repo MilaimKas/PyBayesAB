@@ -6,7 +6,7 @@ from PyBayesAB.base_model import BayesianModel
 from PyBayesAB.base_plot import PlotManager  
 from PyBayesAB import helper
 
-from PyBayesAB import N_SAMPLE, N_PTS
+from PyBayesAB.config import N_SAMPLE, N_PTS
 
 class ExponentialMixin:
     """
