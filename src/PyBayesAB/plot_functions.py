@@ -10,7 +10,7 @@ import numpy as np
 from scipy.stats import gaussian_kde
 from scipy.interpolate import griddata
 
-from PyBayesAB import N_BINS, N_PTS, FIGSIZE, STYLE, COLOR_MAP, LINEWIDTH
+from PyBayesAB.config import N_BINS, N_PTS, FIGSIZE, STYLE, COLOR_MAP, LINEWIDTH
 from PyBayesAB import helper
 
 # define global style
