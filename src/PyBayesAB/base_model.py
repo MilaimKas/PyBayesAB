@@ -2,7 +2,7 @@ import numpy as np
 
 from PyBayesAB import helper, bayesian_functions
 from PyBayesAB.base_plot import PlotManager
-from PyBayesAB import N_SAMPLE
+from PyBayesAB.config import N_SAMPLE
 
 import  pandas as pd
 
@@ -83,6 +83,23 @@ class BayesianModel:
             self.rvs_A = self.make_rvs(group="A", N_sample=N_sample, **post_kwargs)
             self.rvs_B = self.make_rvs(group="B", N_sample=N_sample, **post_kwargs)
         return self.rvs_A-self.rvs_B
+    
+    def make_cum_rvs_diff(self, N_sample=N_SAMPLE, **post_kwargs):
+        """
+        Calculate the cumulative posterior distribution for the difference between groups A and B.
+        """
+        if self.rvs_cum_A is None or self.rvs_cum_B is None:
+            #  check if dataA and dataB are same length
+            self._check_missing_data()
+            # make rvs for both groups
+            _, self.rvs_cum_A, _ = self.make_cum_posterior(group="A", N_sample=N_sample, N_pts=1, **post_kwargs)
+            _, self.rvs_cum_B, _ = self.make_cum_posterior(group="B", N_sample=N_sample, N_pts=1, **post_kwargs)
+        rvs_diff_cum = []
+        for rvs_a, rvs_b in zip(self.rvs_cum_A, self.rvs_cum_B):
+            if len(rvs_a) != len(rvs_b):
+                raise ValueError("Cumulative posterior for groups A and B must have the same length")
+            rvs_diff_cum.append(rvs_a - rvs_b)
+        return rvs_diff_cum   
 
     def prob_best(self, post_kwargs={}):
         """
@@ -217,7 +234,7 @@ class BayesianModel:
                 The Bayes factor is {BF:.2f}, thus providing {text}
                 """
     
-    def summary_result(self, rope_interval, level, post_kwargs={}):
+    def summary_result(self, rope_interval, level=95, post_kwargs={}):
         """
         Generate a summary of the Bayesian metrics.
 
@@ -271,24 +288,52 @@ class CompositePosterior(BayesianModel, PlotManager):
         self.models = models
         if parameter_name is None:
             self.parameter_name = "Composite Parameter"
+        
+        # add dataA and dataB for compatibility with BayesianModel._check_missing_data
+        self.dataA = [0]
+        self.dataB = [0]
+        self._initialize_cache() # call to initialize cache for rvs_A and rvs_B
 
-    def make_rvs_diff(self, N_sample=N_SAMPLE, post_kwargs={}):
-        diffs = [model.make_rvs_diff(N_sample=N_sample) for model in self.models]
-
-        if self.op == 'add':
-            return np.sum(diffs, axis=0)
-        elif self.op == 'mul':
-            out = diffs[0]
-            for d in diffs[1:]:
-                out *= d
-            return out
+    def make_rvs(self, group="A", N_sample=N_SAMPLE):
+        # check if number of  experiments is the same for both groups
+        if self.op == "add":
+            return sum(model.make_rvs(group=group, N_sample=N_sample) for model in self.models)
+        elif self.op == "mul":
+            result = self.models[0].make_rvs(group=group, N_sample=N_sample)
+            for model in self.models[1:]:
+                result *= model.make_rvs(group=group, N_sample=N_sample)
+            return result
         else:
-            raise ValueError("Invalid operation in CompositePosterior")
+            raise ValueError(f"Unsupported op: {self.op}")
+    
+    def make_cum_posterior(self, group="A", N_sample=N_SAMPLE, **post_kwargs):
+        """
+        Compute cumulative posterior evolution of the composite model for the specified group.
+        This assumes each component returns a list of rvs (one per cumulative experiment).
+        """
+        # Get cumulative posterior rvs for the first model
+        rvs_data = self.models[0].make_cum_posterior(group=group, N_sample=N_sample, N_pts=1, **post_kwargs)
 
-    def make_rvs(self, group="diff", N_sample=N_SAMPLE):
-        if group != "diff":
-            print("Warning: make_rvs for group other than 'diff' is not implemented in CompositePosterior. Will return difference.")
-        return self.make_rvs_diff(N_sample=N_sample)
+        # If the first model returns a tuple, assume format (x_pts, rvs_list, pdfs)
+        if isinstance(rvs_data, tuple):
+            rvs_data = rvs_data[1]
+
+        for model in self.models[1:]:
+            rvs_other = model.make_cum_posterior(group=group, N_sample=N_sample, N_pts=1, **post_kwargs)
+            if isinstance(rvs_other, tuple):
+                rvs_other = rvs_other[1]
+            
+            # check if the number of experiments is the same
+            if len(rvs_data) != len(rvs_other):
+                raise ValueError("All models must return the same number of cumulative experiments")
+
+            # Element-wise combination (assumes same number of experiments)
+            rvs_data = [r + o if self.op == "add" else r * o for r, o in zip(rvs_data, rvs_other)]
+
+        return rvs_data
+
+
+        
 
 
 
