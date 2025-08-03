@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import dirichlet
 from scipy.stats import multinomial
 
-from PyBayesAB import N_SAMPLE, N_PTS
+from PyBayesAB.config import N_SAMPLE, N_PTS
 
 from PyBayesAB.base_model import BayesianModel  
 from PyBayesAB.base_plot import PlotManager  
@@ -26,7 +26,7 @@ class DistMixin:
     def post_parameters(self, group="A", data=None):
         return NotImplementedError
 
-    def get_parameters(self, group,  parameters=None, data=None):
+    def _get_parameters(self, group,  parameters=None, data=None):
         return NotImplementedError
 
     def make_rvs(self, parameters=None, data=None, group="A", N_sample=N_SAMPLE, var="mu"):
