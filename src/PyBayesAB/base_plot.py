@@ -1,7 +1,7 @@
 import numpy as np
 
 from PyBayesAB import plot_functions, helper, bayesian_functions
-from PyBayesAB import N_SAMPLE, N_PTS, FIGSIZE
+from PyBayesAB.config import N_SAMPLE, N_PTS, FIGSIZE
 
 
 class PlotManager:
@@ -24,8 +24,13 @@ class PlotManager:
             rvs = self.make_rvs(group=group, N_sample=N_sample, **post_kwargs)
             para_range = para_range or self.get_parameter_range(rvs)
             x_pdf = np.linspace(para_range[0], para_range[1], N_pts)
-            y_pdf = self.make_pdf(group=group, p_pts=x_pdf, **post_kwargs)
-            fig = plot_functions.plot_posterior([rvs], [x_pdf, [y_pdf]], labels=[group], xlabel=parameter_name, 
+            # make pdf for the given group if make_pdf is implemented
+            if hasattr(self, 'make_pdf'):
+                y_pdf = self.make_pdf(group=group, p_pts=x_pdf, **post_kwargs)
+                dist_list = [rvs, [x_pdf, y_pdf]]
+            else:
+                dist_list = [rvs]
+            fig = plot_functions.plot_posterior(dist_list, labels=[group], xlabel=parameter_name, 
                                                 **plot_kwargs)
 
         # plot difference of posteriors
@@ -40,9 +45,14 @@ class PlotManager:
             rvs_B = self.make_rvs(group="B", N_sample=N_sample,  **post_kwargs)
             para_range = para_range or self.get_parameter_range(np.concatenate((rvs_A, rvs_B)))
             x_pdf = np.linspace(para_range[0], para_range[1], N_pts)
-            pdf_A = self.make_pdf(group="A", p_pts=x_pdf, **post_kwargs)
-            pdf_B = self.make_pdf(group="B", p_pts=x_pdf, **post_kwargs)
-            fig = plot_functions.plot_posterior([rvs_A, rvs_B], [x_pdf, [pdf_A, pdf_B]], labels=["A", "B"], xlabel=parameter_name, 
+            # make pdf for both groups if make_pdf is implemented
+            if not hasattr(self, 'make_pdf'):
+                pdf_A = self.make_pdf(group="A", p_pts=x_pdf, **post_kwargs)
+                pdf_B = self.make_pdf(group="B", p_pts=x_pdf, **post_kwargs)
+                dist_list = [rvs_A, rvs_B], [x_pdf, [pdf_A, pdf_B]]
+            else:
+                dist_list = [rvs_A, rvs_B]
+            fig = plot_functions.plot_posterior(dist_list, labels=["A", "B"], xlabel=parameter_name, 
                                                 **plot_kwargs)
 
         else:
@@ -50,7 +60,7 @@ class PlotManager:
 
         return fig
     
-    def plot_cum_posterior(self, group, type, N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS, **post_kwargs):
+    def plot_cum_posterior(self, group="diff", type="1D", N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS, **post_kwargs):
 
         parameter_name = self.get_parameter_name()
 
@@ -93,7 +103,7 @@ class PlotManager:
 
         return fig
 
-    def plot_anim(self, group, N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS, interval=200, figsize=FIGSIZE, **post_kwargs):
+    def plot_anim(self, group="diff", N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS, interval=200, figsize=FIGSIZE, **post_kwargs):
 
         parameter_name = self.get_parameter_name()
 
@@ -103,7 +113,7 @@ class PlotManager:
         return plot_functions.animate_posterior(pdf_data, interval=interval, figsize=figsize, xlabel=parameter_name, para_range=para_range)
 
 
-    def get_post_data(self, group, para_range=None, N_sample=N_SAMPLE, N_pts=N_PTS, **post_kwargs):
+    def get_post_data(self, group="diff", para_range=None, N_sample=N_SAMPLE, N_pts=N_PTS, **post_kwargs):
         """
         post process the posterior data for the given group to be used in plotting
 
@@ -135,12 +145,7 @@ class PlotManager:
 
         elif group == "diff":
 
-            _, rvs_data_A, _ = self.make_cum_posterior(group="A", **post_kwargs)
-            _, rvs_data_B, _ = self.make_cum_posterior(group="B", **post_kwargs)
-
-            rvs_data = []
-            for rvs_a,rvs_b in zip(rvs_data_A, rvs_data_B):
-                rvs_data.append([rvs_a-rvs_b])
+            rvs_data = self.make_cum_rvs_diff(N_sample=N_sample, **post_kwargs)
             pdf_data = None
         
         return rvs_data, pdf_data
