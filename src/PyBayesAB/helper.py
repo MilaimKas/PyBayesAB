@@ -13,7 +13,7 @@ from matplotlib.colors import LinearSegmentedColormap
 
 import math
 
-from PyBayesAB import STYLE
+from PyBayesAB.config import STYLE
 
 
 def hdi(distribution, level=0.95, norm_app=False):
