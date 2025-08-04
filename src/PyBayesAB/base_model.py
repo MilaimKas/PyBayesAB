@@ -197,7 +197,7 @@ class BayesianModel:
         else:
             if not isinstance(H0, (list, np.array, tuple)):
                 raise ValueError("Null hypothesis must be a interval in values, array or list of length two")
-        p_H0 = 1-(np.mean((rvs<np.max(H0)) & (rvs>np.min(H0))))
+        p_H0 = 1-(np.mean((rvs<np.max(H0)) & (rvs>np.min(H0)))) + 1e-10  # add small value to avoid division by zero
         H0 = f"Parameter between {np.min(H0):.2f} and {np.max(H0):.2f}"
 
         if H1 is None:
@@ -289,9 +289,9 @@ class CompositePosterior(BayesianModel, PlotManager):
         if parameter_name is None:
             self.parameter_name = "Composite Parameter"
         
-        # add dataA and dataB for compatibility with BayesianModel._check_missing_data
-        self.dataA = [0]
-        self.dataB = [0]
+        # add dataA and dataB from first model for compatibility with BayesianModel._check_missing_data and return_data
+        self.dataA = self.models[0].dataA
+        self.dataB = self.models[0].dataB
         self._initialize_cache() # call to initialize cache for rvs_A and rvs_B
 
     def make_rvs(self, group="A", N_sample=N_SAMPLE):
@@ -306,22 +306,19 @@ class CompositePosterior(BayesianModel, PlotManager):
         else:
             raise ValueError(f"Unsupported op: {self.op}")
     
-    def make_cum_posterior(self, group="A", N_sample=N_SAMPLE, **post_kwargs):
+    def make_cum_posterior(self, group="A", N_sample=N_SAMPLE, N_pts=1, **post_kwargs):
         """
         Compute cumulative posterior evolution of the composite model for the specified group.
         This assumes each component returns a list of rvs (one per cumulative experiment).
+
+        Returns:
+            None, rvs_data, None: The first and last elements are placeholders for compatibility with plotting functions.
         """
         # Get cumulative posterior rvs for the first model
-        rvs_data = self.models[0].make_cum_posterior(group=group, N_sample=N_sample, N_pts=1, **post_kwargs)
-
-        # If the first model returns a tuple, assume format (x_pts, rvs_list, pdfs)
-        if isinstance(rvs_data, tuple):
-            rvs_data = rvs_data[1]
+        _, rvs_data, _ = self.models[0].make_cum_posterior(group=group, N_sample=N_sample, N_pts=N_pts, **post_kwargs)
 
         for model in self.models[1:]:
-            rvs_other = model.make_cum_posterior(group=group, N_sample=N_sample, N_pts=1, **post_kwargs)
-            if isinstance(rvs_other, tuple):
-                rvs_other = rvs_other[1]
+            _, rvs_other, _ = model.make_cum_posterior(group=group, N_sample=N_sample, N_pts=N_pts, **post_kwargs)
             
             # check if the number of experiments is the same
             if len(rvs_data) != len(rvs_other):
@@ -330,7 +327,7 @@ class CompositePosterior(BayesianModel, PlotManager):
             # Element-wise combination (assumes same number of experiments)
             rvs_data = [r + o if self.op == "add" else r * o for r, o in zip(rvs_data, rvs_other)]
 
-        return rvs_data
+        return None, rvs_data, None
 
 
         
