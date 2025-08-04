@@ -164,14 +164,13 @@ class PlotManager:
             parameter_name = "Parameters"
         return parameter_name
 
-    def plot_bayesian_metrics(self, rope_interval, N_sample=N_SAMPLE, N_pts=N_PTS, **post_kwargs):
+    def plot_bayesian_metrics(self, rope_interval, N_sample=N_SAMPLE, **post_kwargs):
         """
         Plots Bayesian metrics (HDI, ROPE, MAP) against the number of experiments using Matplotlib.
 
         Args:
             group (str, optional): The group to plot metrics for ("A", "B" or "diff"). Defaults to "A".
             N_sample (int, optional): Number of samples to generate. Defaults to N_SAMPLE.
-            N_pts (int, optional): Number of points for the PDF. Defaults to N_PTS.
 
         Returns:
             matplotlib.figure.Figure: The Matplotlib figure with Bayesian metrics.
@@ -186,13 +185,11 @@ class PlotManager:
         num_experiments = list(range(0, len(self.return_data("A")) + 1))
 
         # get posteriors
-        rvs_data, _ = self.get_post_data(group="diff", N_sample=N_sample, para_range=None, N_pts=N_pts, **post_kwargs)
+        rvs_data, _ = self.get_post_data(group="diff", N_sample=N_sample, para_range=None, **post_kwargs)
         
         # Calculate metrics for each number of experiments
         for rvs in rvs_data:
-
-            rvs =  rvs[0]
-
+            
             # HDI
             hdi_low, hdi_up = helper.hdi(rvs, level=0.95)
             hdi_lower.append(hdi_low)
