@@ -388,7 +388,7 @@ def plot_bayesian_metrics(num_experiments, hdi_lower, hdi_upper, rope_values, ma
         ax.fill_between(num_experiments, rope_interval[0], rope_interval[1],
                         color='green', alpha=0.2, label='ROPE Range')
     
-    # add line  at  0
+    # add line at 0
     ax.axhline(0, color='black', linestyle='--', linewidth=1, label="_nolegend_")   
 
     # make sure y range is optimal. Not accounting for prior
@@ -398,7 +398,7 @@ def plot_bayesian_metrics(num_experiments, hdi_lower, hdi_upper, rope_values, ma
 
     # Add labels and legend
     ax.set_title('Bayesian Metrics vs Number of Experiments')
-    ax.set_xlabel('Number of Experiments')
+    ax.set_xlabel('Experiments')
     ax.set_ylabel('Metric Value')
     ax.legend()
 
@@ -413,8 +413,8 @@ def plot_bayesian_metrics(num_experiments, hdi_lower, hdi_upper, rope_values, ma
 
     # Add labels and legend
     ax2.set_title('Bayesian Metrics vs Number of Experiments')
-    ax2.set_xlabel('Number of Experiments')
-    ax2.set_ylabel('Metric Value')
+    ax2.set_xlabel('Experiments')
+    ax2.set_ylabel('Probability (%)')
     ax2.legend()
 
     return fig1, fig2
