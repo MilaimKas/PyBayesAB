@@ -70,25 +70,33 @@ For example, if you have a Bernoulli model and a Normal model, you can create a 
 
 from PyBayesAB import bernoulli, normal
 
-# generate some Bernoulli data as pandas dataframe
-bernoulli_data = pd.DataFrame({
-    'group': ['A', 'B', 'A', 'B', 'B'],
-    'values': [1, 0, 1, 0, 1],
-    'experiment': [1, 1, 2, 2, 1]
-})
-# generate some Normal data as pandas dataframe
-normal_data = pd.DataFrame({
-    'group': ['A', 'B', 'A', 'B', 'B'],
-    'values': [5.0, 7.0, 6.0, 8.0, 14.0],
-    'experiment': [1, 1, 2, 2, 1]
-})
+n_exp = 20 # number of experiments (or dates)
 
-# build seperate models
+# create a Bernoulli model
 bernoulli_model = bernoulli.BaysBernoulli()
-normal_model = normal.BaysNormal()
-# add the data
-bernoulli_model.add_test_result(bernoulli_data)
-normal_model.add_test_result(normal_data)
+
+#add some random data to the Bernoulli model
+p_A = 0.21
+p_B = 0.2
+for n in range(n_exp):
+    n_trial = np.random.randint(10,50)
+    bernoulli_model.add_rand_experiment(n_trial, p_A, group="A")
+    bernoulli_model.add_rand_experiment(n_trial, p_B, group="B")
+
+# create a Normal model
+normal_model = normal.BaysNorm()
+
+# add some random data to the Normal model
+mu_A = 20
+std_A = 10
+tau_A = 1/std_A**2 
+mu_B = 22
+std_B = 12
+tau_B = 1/std_B**2
+for i in range(n_exp):
+    n_data = np.random.randint(10,50)
+    normal_model.add_rand_experiment(n_data, mu_A, std_A, group="A")
+    normal_model.add_rand_experiment(n_data, mu_B, std_B, group="B")
 
 # create a composite model
 composite_model = bernoulli_model * normal_model
