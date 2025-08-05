@@ -57,22 +57,22 @@ def rope_decision(rvs, rope_interval, level=95):
     # Check if HDI is > 0  and entirely outside the ROPE
     if hdi_up < 0:
         if hdi_up < np.min(rope_interval):
-            return "Practically Significant: Group A is better"
+            return "Group A is better -> Practically Significant"
         else:
-            return "Statistically Significant: Group A is better"
+            return "Group A is better -> Statistically Significant"
     elif hdi_low > 0:
         if  hdi_low > np.max(rope_interval):
-            return "Practically Significant: Group B is better"
+            return "Group B is better -> Practically Significant"
         else:
-            return "Statistically Significant: Group B is better"
+            return "Group B is better -> Statistically Significant"
 
     # Check if HDI is entirely within the ROPE
     elif hdi_low >= np.min(rope_interval) and hdi_up <= np.max(rope_interval):
-        return "Significant: no difference between A and B (within ROPE)"
+        return "No difference between A and B -> Practically Significant"
 
     # Otherwise, the result is inconclusive
     else:
-        return "Inconclusive: needs more data (overlaps with ROPE)"
+        return "Inconclusive: needs more data"
 
 def bayesian_factor(posterior, H1=None, H0=None, prior=None):
 
