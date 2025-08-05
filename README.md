@@ -15,7 +15,7 @@ Currently available data type:
 
 ## Foreword
 
-This code was initially developed for teaching purposes and is not optimized for production use. I wanted to learn some advanced Python features such as mixins class and play with pyplot. However, the code is functional and can be used for Bayesian AB testing, it provides a good starting point for understanding Bayesian statistics in the context of AB testing and even allows for complex scenarios with composite models. It is a good middle ground between online calculators and full-fledged libraries like PyMC. 
+This code was initially developed for teaching purposes and is not optimized for production use. I wanted to learn some advanced Python features such as mixins class, class operations and play with pyplot. However, the code is functional and can be used for Bayesian AB testing, it provides a good starting point for understanding Bayesian statistics in the context of AB testing and even allows for complex scenarios with composite models. It is a good middle ground between online calculators and full-fledged libraries like PyMC. 
 
 ## Installation
 
@@ -110,6 +110,9 @@ stats = composite_model.summary_result()
 ```
 
 Important remarks: when using composite models, the posterior is calculated as a product of the posteriors of the individual models. This means that the models should be independent and not correlated. In the example above the models assumes that the purchase probability is independent of the amount of money spent.
+
+## Code structure
+The code is structured in a way that allows for easy extension and addition of new models. Each model is implemented as a class that inherits from the `BaysModel` class and the `PlotManager` class. The `BaysModel` class provides the basic functionality for adding data, calculating posterior, and visualizing the results. The `PlotManager` class provides the functionality for plotting the posterior and cumulative posterior. The models are implemented in separate files in the `src/PyBayesAB/distribution` directory where the `template.py` module can be used as basis.
 
 ## next steps
 - add truncated normal distribution (example: for revenue models)
