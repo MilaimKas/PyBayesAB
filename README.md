@@ -17,6 +17,10 @@ Currently available data type:
 
 This code was initially developed for teaching purposes and is not optimized for production use. I wanted to learn some advanced Python features such as mixins class, class operations and play with pyplot. However, the code is functional and can be used for Bayesian AB testing, it provides a good starting point for understanding Bayesian statistics in the context of AB testing and even allows for complex scenarios with composite models. It is a good middle ground between online calculators and full-fledged libraries like PyMC. 
 
+### Remarks on Bayesian Vs Frequentist statistics
+Using simple models with un-informative priors, some Bayesian metrics such as the credible interval or the posterior mean can be seen as equivalent to their Frequentist counterpart: confidence interval and sample mean, respectively. 
+Since AB testing relies on defining thresholds for decision making, both approaches can be used. However, Bayesian statistics provides a more intuitive interpretation of the results and allows to  incorporate prior knowledge into the analysis (altough some may argue that this is not always a good idea). 
+
 ## Installation
 
 ## Usage
@@ -118,3 +122,4 @@ The code is structured in a way that allows for easy extension and addition of n
 - add truncated normal distribution (example: for revenue models)
 - add pareto distribution
 - add decision making based on Bayes factor
+- add possibility to use custom priors from normal distribution
