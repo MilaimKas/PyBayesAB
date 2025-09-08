@@ -105,13 +105,26 @@ for i in range(n_exp):
 # create a composite model
 composite_model = bernoulli_model * normal_model
 
-# plot the cumulative posterior for the composite model
-fig = composite_model.plot_cum_posterior()
-
 # get Bayesian statistics for the composite model
 stats = composite_model.summary_result()
 
 ```
+Some plots can be generated to visualize the posterior and cumulative posterior:
+
+```python
+fig = composite_model.plot_final_posterior()
+```
+![](final_post_comp.png)
+
+```python
+fig = composite_model.plot_cum_posterior()
+```
+
+```python
+fig1, fig2 = composite_model.plot_bayesian_metrics(rope_interval=[-2, 2])
+```
+![](bay_met_fig1_comp.png)
+![](bay_met_fig1_comp-1.png)
 
 Important remarks: when using composite models, the posterior is calculated as a product of the posteriors of the individual models. This means that the models should be independent and not correlated. In the example above the models assumes that the purchase probability is independent of the amount of money spent.
 
