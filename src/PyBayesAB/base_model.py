@@ -1,5 +1,7 @@
 import numpy as np
 
+from abc import ABC, abstractmethod
+
 from PyBayesAB import helper, bayesian_functions
 from PyBayesAB.base_plot import PlotManager
 from PyBayesAB.config import N_SAMPLE
@@ -9,7 +11,7 @@ import  pandas as pd
 #TODO: define prior separately for different groups
 
 
-class BayesianModel:
+class BayesianModel(ABC):
 
     def __init__(self):
 
@@ -276,6 +278,21 @@ class BayesianModel:
     
     def __sub__(self, other):
         return CompositePosterior(op='sub', models=[self, other])
+    
+    # abstract methods for child classes to implement
+
+    @abstractmethod
+    def make_rvs(self, parameters, data, group:str, N_sample:int, **kwargs):
+        pass
+
+    @abstractmethod
+    def make_pdf(self, parameters, dat, group:str, p_pts, para_range, **kwargs):
+        pass
+
+    @abstractmethod
+    def make_cum_posterior(self, group:str, N_sample:int, para_range:list, N_pts:int, **kwargs):
+        pass
+
 
 class CompositePosterior(BayesianModel, PlotManager):
     """
