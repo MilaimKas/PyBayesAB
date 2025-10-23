@@ -131,6 +131,15 @@ class PoissonMixin:
         return gamma.pdf(p_pts, a, scale=1/b)
 
     def make_cum_post_para(self, group="A"):
+        """
+        return cumulative alpha and beta parameters for the gamma posterior after each experiment        
+
+        Args:
+            group (str, optional): . Defaults to "A".
+
+        Returns:
+            tuple: alphas, betas
+        """
         data = self.return_data(group)
 
         a_cum = self.prior[0]  # initial alpha from prior
@@ -149,6 +158,18 @@ class PoissonMixin:
         return alphas, betas
 
     def make_cum_posterior(self, group="A", N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS):
+        """
+        return cumulative posterior random values and pdf data after each experiment
+
+        Args:
+            group (str, optional): group. Defaults to "A".
+            N_sample (int, optional): number of drawn samples from the distribution. Defaults to N_SAMPLE.
+            para_range (list, optional): [min, max] of the parameter range. If None, use the make_default_mu_range method. Defaults to None. 
+            N_pts (int, optional): number of points to generate from the pdf. Defaults to N_PTS.
+
+        Returns:
+            tuple: p_pts, rvs_data, pdf_data
+        """
         # create list of rvs and pdf
         a_cum, b_cum = self.make_cum_post_para(group=group)
         rvs_data = []
