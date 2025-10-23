@@ -346,6 +346,12 @@ class CompositePosterior(BayesianModel, PlotManager):
 
         return None, rvs_data, None
 
+    def make_pdf(self, group="A", **kwargs):
+        """
+        dummy method to satisfy abstract base class requirement.
+        """
+        raise NotImplementedError("make_pdf is not implemented for CompositePosterior.")
+
 
         
 
