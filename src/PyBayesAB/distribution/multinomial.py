@@ -10,6 +10,7 @@ from PyBayesAB.base_model import BayesianModel
 from PyBayesAB.base_plot import PlotManager  
 
 import matplotlib.pyplot as plt
+from PyBayesAB.plot_functions import _apply_dark_mode
 
 
 class MultinomMixin:
@@ -226,6 +227,7 @@ class MultinomMixin:
     def plot_dirichlet_rvs(self, group="A", N_sample=N_SAMPLE):
 
         fig, ax = plt.subplots()
+        _apply_dark_mode(fig, ax)
 
         if group == "diff":
             rvs_data_A = self.make_posterior_dirichlet(group="A", N_sample=N_sample)
@@ -272,6 +274,7 @@ class MultinomMixin:
             figsize (tuple, optional): Figure size.
         """
         fig, ax = plt.subplots(figsize=figsize)
+        _apply_dark_mode(fig, ax)
         tail = (100 - level) / 2
 
         n_categories = len(self.prior)

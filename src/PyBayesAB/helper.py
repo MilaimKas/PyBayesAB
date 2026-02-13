@@ -465,22 +465,27 @@ def darken_color(color, factor=0.9):
     """
     return (color[0] * factor, color[1] * factor, color[2] * factor, color[3])
 
-def create_colormap_from_rgba(color, darker_factor=1, range=[0, 0.7]):
+def create_colormap_from_rgba(color, darker_factor=1, range=[0, 0.7], base_color=None):
     """
-    Creates a colormap object that transitions from the given RGBA color to white.
-    
+    Creates a colormap object that transitions from a base color to the given RGBA color.
+
     Args:
         color (tuple): An RGBA color tuple, e.g., (r, g, b, a) where each value is in [0, 1].
-    
+        base_color (str or tuple, optional): Starting color of the colormap. Defaults to white.
+
     Returns:
-        LinearSegmentedColormap: A colormap transitioning from the given color to white.
+        LinearSegmentedColormap: A colormap transitioning from base_color to the given color.
     """
     color_darker = darken_color(color, factor=darker_factor)
-    # Define the color map using the input color and white
+    if base_color is not None:
+        import matplotlib.colors as mcolors
+        bc = mcolors.to_rgba(base_color)
+    else:
+        bc = (1.0, 1.0, 1.0, 1.0)
     cdict = {
-        'red':   [(0.0, 1.0, 1.0), (1.0, color_darker[0], color_darker[0])],
-        'green': [(0.0, 1.0, 1.0), (1.0, color_darker[1], color_darker[1])],
-        'blue':  [(0.0, 1.0, 1.0), (1.0, color_darker[2], color_darker[2])],
+        'red':   [(0.0, bc[0], bc[0]), (1.0, color_darker[0], color_darker[0])],
+        'green': [(0.0, bc[1], bc[1]), (1.0, color_darker[1], color_darker[1])],
+        'blue':  [(0.0, bc[2], bc[2]), (1.0, color_darker[2], color_darker[2])],
         'alpha': [(0.0, 1.0, 1.0), (1.0, color_darker[3], color_darker[3])],
     }
     full_cmap = LinearSegmentedColormap('custom_full_colormap', cdict)

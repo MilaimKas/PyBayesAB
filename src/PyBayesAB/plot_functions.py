@@ -10,7 +10,7 @@ import numpy as np
 from scipy.stats import gaussian_kde
 from scipy.interpolate import griddata
 
-from PyBayesAB.config import N_BINS, N_PTS, FIGSIZE, STYLE, COLOR_MAP, LINEWIDTH
+from PyBayesAB.config import N_BINS, N_PTS, FIGSIZE, STYLE, COLOR_MAP, LINEWIDTH, DARK_MODE
 from PyBayesAB import helper
 
 # define global style
@@ -24,8 +24,61 @@ COLORS = [
     (0.44, 0.44, 0.56, 1.0),   # slate
 ]
 
-# sequential colormaps from each base color (white → color)
-CMAPS = [helper.create_colormap_from_rgba(c, darker_factor=1.2) for c in COLORS]
+# dark mode theme constants
+_DM_BG = "#1a1a2e"
+_DM_AX = "#16213e"
+_DM_FG = "#e0e0e0"
+_DM_SPINE = "#444466"
+_DM_GRID = "#2a2a4a"
+
+# sequential colormaps: start from dark bg in dark mode, white in light mode
+_CMAP_BASE = _DM_AX if DARK_MODE else None
+CMAPS = [helper.create_colormap_from_rgba(c, darker_factor=1.2, base_color=_CMAP_BASE) for c in COLORS]
+
+# global legend styling for dark mode
+if DARK_MODE:
+    plt.rcParams.update({
+        "legend.facecolor": _DM_AX,
+        "legend.edgecolor": _DM_SPINE,
+        "legend.labelcolor": _DM_FG,
+    })
+
+def _apply_dark_mode(fig, ax, grid=True):
+    """Apply dark mode styling to a fig/ax pair. No-op when DARK_MODE is False."""
+    if not DARK_MODE:
+        return
+    fig.patch.set_facecolor(_DM_BG)
+    ax.set_facecolor(_DM_AX)
+    ax.tick_params(colors=_DM_FG, labelsize=9)
+    ax.xaxis.label.set_color(_DM_FG)
+    ax.yaxis.label.set_color(_DM_FG)
+    ax.title.set_color(_DM_FG)
+    for spine in ax.spines.values():
+        spine.set_edgecolor(_DM_SPINE)
+    if grid:
+        ax.grid(True, color=_DM_GRID, linewidth=0.5)
+    else:
+        ax.grid(False)
+
+def _apply_dark_mode_3d(fig, ax):
+    """Apply dark mode styling to a 3D fig/ax pair."""
+    if not DARK_MODE:
+        return
+    fig.patch.set_facecolor(_DM_BG)
+    ax.set_facecolor(_DM_AX)
+    ax.tick_params(colors=_DM_FG, labelsize=8)
+    ax.xaxis.label.set_color(_DM_FG)
+    ax.yaxis.label.set_color(_DM_FG)
+    ax.xaxis.pane.set_facecolor(_DM_AX)
+    ax.yaxis.pane.set_facecolor(_DM_AX)
+    ax.zaxis.pane.set_facecolor(_DM_AX)
+
+def _apply_dark_mode_cbar(cbar):
+    """Apply dark mode styling to a colorbar."""
+    if not DARK_MODE:
+        return
+    cbar.set_label(cbar.ax.get_ylabel(), color=_DM_FG)
+    cbar.ax.tick_params(colors=_DM_FG)
 
 def plot_data(data, label, xlabel="Experiments", ylabel="Values",
               figsize=FIGSIZE, plot_kwargs={"linewidth":LINEWIDTH, "marker":"o", "markersize":5}):
@@ -42,6 +95,7 @@ def plot_data(data, label, xlabel="Experiments", ylabel="Values",
         matplotlib.figure.Figure: The resulting figure.
     """
     fig, ax = plt.subplots(figsize=figsize)
+    _apply_dark_mode(fig, ax)
     labels = [f"Group {label} {i + 1}" for i in range(len(data))]
     for d, lab in zip(data, labels):
         ax.plot(d, label=lab, **plot_kwargs)
@@ -68,6 +122,7 @@ def plot_posterior(rvs, pdf=None, xlabel="Parameter", labels=None,
     """
     
     fig, ax = plt.subplots(figsize=figsize)
+    _apply_dark_mode(fig, ax)
     labels = labels or [f"Group {i + 1}" for i in range(len(rvs))]
 
     if pdf:
@@ -102,6 +157,11 @@ def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,
                     para_range=None):
 
     fig, ax = plt.subplots(figsize=figsize)
+    _apply_dark_mode(fig, ax)
+
+    fill_alpha_scale = 0.6 if DARK_MODE else 0.4
+    line_alpha_boost = 0.3 if DARK_MODE else 0.2
+
     N_exp = len(rvs_data)
     N_groups = len(rvs_data[0])
 
@@ -116,8 +176,8 @@ def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,
             alpha = 0.08 + 0.55 * (i / max(N_exp - 1, 1))
             for j, (post_rvs, lab, pdf, xx) in enumerate(zip(rvs_data[i], group_labels, post_pdf[i], x)):
                 col = cmaps[j][i]
-                ax.fill_between(xx, pdf, alpha=alpha * 0.4, color=col, **fill_kwargs)
-                ax.plot(xx, pdf, color=col, alpha=alpha + 0.2, **plot_kwargs)
+                ax.fill_between(xx, pdf, alpha=alpha * fill_alpha_scale, color=col, **fill_kwargs)
+                ax.plot(xx, pdf, color=col, alpha=alpha + line_alpha_boost, **plot_kwargs)
 
     else:
         for i in range(N_exp):
@@ -128,8 +188,8 @@ def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,
                     kde = gaussian_kde(post_rvs)
                     x_kde = np.linspace(post_rvs.min(), post_rvs.max(), 300)
                     y_kde = kde(x_kde)
-                    ax.fill_between(x_kde, y_kde, alpha=alpha * 0.4, color=col, **fill_kwargs)
-                    ax.plot(x_kde, y_kde, color=col, alpha=alpha + 0.2, **plot_kwargs)
+                    ax.fill_between(x_kde, y_kde, alpha=alpha * fill_alpha_scale, color=col, **fill_kwargs)
+                    ax.plot(x_kde, y_kde, color=col, alpha=alpha + line_alpha_boost, **plot_kwargs)
                 except Exception:
                     pass
 
@@ -138,14 +198,13 @@ def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,
     sm = mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(1, N_exp), cmap=cbar_cmap)
     cbar = fig.colorbar(sm, ax=ax, orientation='vertical', pad=0.02, aspect=30)
     cbar.set_label("Experiment", fontsize=10)
-    cbar.ax.tick_params(labelsize=9)
+    _apply_dark_mode_cbar(cbar)
 
     if para_range is not None:
         ax.set_xlim(para_range)
 
     ax.set_xlabel(xlabel, fontsize=11)
     ax.set_ylabel("Probability density", fontsize=11)
-    ax.tick_params(labelsize=9)
     fig.tight_layout()
 
     return fig
@@ -163,6 +222,7 @@ def plot_cumulative_posterior_2D_pdf(
     para_range=None):
 
     fig, ax = plt.subplots(figsize=figsize)
+    _apply_dark_mode(fig, ax, grid=False)
 
     param_pts, post_pdf = pdf_data
 
@@ -193,6 +253,7 @@ def plot_cumulative_posterior_2D_pdf(
         cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i]}", orientation="vertical",
                             pad=0.02, aspect=30, shrink=0.85)
         cbar.ax.tick_params(labelsize=8)
+        _apply_dark_mode_cbar(cbar)
 
     if para_range is None:
         para_range = helper.get_optimal_xrange(post_pdf[1], param_pts)
@@ -222,6 +283,7 @@ def plot_cumulative_posterior_3D(rvs_data, pdf_data=None,
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(projection='3d')
     ax.grid(False)
+    _apply_dark_mode_3d(fig, ax)
 
     N_exp = len(rvs_data)
     N_groups = len(rvs_data[0])
@@ -321,6 +383,7 @@ def plot_cumulative_posterior_2D_rvs(
     """
 
     fig, ax = plt.subplots(figsize=figsize)
+    _apply_dark_mode(fig, ax, grid=False)
 
     nx = len(rvs_data)
     ngroups = len(rvs_data[0])
@@ -353,6 +416,7 @@ def plot_cumulative_posterior_2D_rvs(
         cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i]}",
                             orientation="vertical", pad=0.02, aspect=30, shrink=0.85)
         cbar.ax.tick_params(labelsize=8)
+        _apply_dark_mode_cbar(cbar)
 
     if para_range is None:
         para_range = [bin_centers.min(), bin_centers.max()]
@@ -375,24 +439,32 @@ def plot_bayesian_metrics(num_experiments, hdi_lower, hdi_upper, rope_values, ma
 
     ## HDI and MAP ##
 
+    # brighter colors for dark mode
+    c_hdi = "#5dadec" if DARK_MODE else "blue"
+    c_map = "#ff6b6b" if DARK_MODE else "red"
+    c_rope = "#69db7c" if DARK_MODE else "green"
+    c_prob = "#ffd43b" if DARK_MODE else "orange"
+    c_zero = _DM_FG if DARK_MODE else "black"
+
     # Create Matplotlib figure
     fig1, ax = plt.subplots(figsize=(10, 6))
+    _apply_dark_mode(fig1, ax)
 
     # Plot HDI
-    ax.plot(num_experiments, hdi_lower, label='_nolegend_', linestyle='--', color='blue')
-    ax.plot(num_experiments, hdi_upper, label='_nolegend_', linestyle='--', color='blue')
-    ax.fill_between(num_experiments, hdi_lower, hdi_upper, color='blue', alpha=0.2, label='HDI Range')
+    ax.plot(num_experiments, hdi_lower, label='_nolegend_', linestyle='--', color=c_hdi)
+    ax.plot(num_experiments, hdi_upper, label='_nolegend_', linestyle='--', color=c_hdi)
+    ax.fill_between(num_experiments, hdi_lower, hdi_upper, color=c_hdi, alpha=0.25, label='HDI Range')
 
     # Plot MAP
-    ax.plot(num_experiments, map_values, label='MAP', linestyle='-', color='red')
+    ax.plot(num_experiments, map_values, label='MAP', linestyle='-', color=c_map)
 
     if rope_interval is not None:
         # Plot ROPE as a horizontal line
         ax.fill_between(num_experiments, rope_interval[0], rope_interval[1],
-                        color='green', alpha=0.2, label='ROPE Range')
-    
+                        color=c_rope, alpha=0.25, label='ROPE Range')
+
     # add line at 0
-    ax.axhline(0, color='black', linestyle='--', linewidth=1, label="_nolegend_")   
+    ax.axhline(0, color=c_zero, linestyle='--', linewidth=1, label="_nolegend_")   
 
     # make sure y range is optimal. Not accounting for prior
     ymin = min(hdi_lower[1:])
@@ -406,13 +478,14 @@ def plot_bayesian_metrics(num_experiments, hdi_lower, hdi_upper, rope_values, ma
     ax.legend()
 
     ### ROPE and Probability of Best ###
-    fig2, ax2 = plt.subplots(figsize=(10, 6))   
+    fig2, ax2 = plt.subplots(figsize=(10, 6))
+    _apply_dark_mode(fig2, ax2)
 
     # Plot ROPE probability
-    ax2.plot(num_experiments, rope_values, label='ROPE', linestyle='-', color='green')
-    
+    ax2.plot(num_experiments, rope_values, label='ROPE', linestyle='-', color=c_rope)
+
     # Plot probability of best
-    ax2.plot(num_experiments, prob_best, label='Probability of A better than B', linestyle='-', color='orange')
+    ax2.plot(num_experiments, prob_best, label='Probability of A better than B', linestyle='-', color=c_prob)
 
     # Add labels and legend
     ax2.set_title('Bayesian Metrics vs Number of Experiments')
@@ -434,6 +507,8 @@ def animate_posterior(post_data, interval=200,
     plt.rcParams["animation.html"] = "jshtml"
 
     fig, axs = plt.subplots(1, 2, figsize=figsize)
+    _apply_dark_mode(fig, axs[0])
+    _apply_dark_mode(fig, axs[1])
     fig.tight_layout(pad=2)
 
     if len(post_data) == 2:

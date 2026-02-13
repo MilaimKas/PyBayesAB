@@ -5,3 +5,4 @@ N_PTS = 3000
 STYLE = "seaborn-v0_8-whitegrid"
 COLOR_MAP = "Set2"
 LINEWIDTH = 2
+DARK_MODE = True
