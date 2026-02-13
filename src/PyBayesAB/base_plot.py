@@ -146,6 +146,7 @@ class PlotManager:
         elif group == "diff":
 
             rvs_data = self.make_cum_rvs_diff(N_sample=N_sample, **post_kwargs)
+            rvs_data = [[r] for r in rvs_data]
             pdf_data = None
         
         return rvs_data, pdf_data
@@ -190,19 +191,21 @@ class PlotManager:
         # Calculate metrics for each number of experiments
         for rvs in rvs_data:
             
+            dist = rvs[0]
+
             # HDI
-            hdi_low, hdi_up = helper.hdi(rvs, level=0.95)
+            hdi_low, hdi_up = helper.hdi(dist, level=0.95)
             hdi_lower.append(hdi_low)
             hdi_upper.append(hdi_up)
 
             # ROPE
-            rope_values.append(bayesian_functions.rope(rvs=rvs, interval=rope_interval)*100)
+            rope_values.append(bayesian_functions.rope(rvs=dist, interval=rope_interval)*100)
 
             # MAP
-            map_values.append(bayesian_functions.map(rvs,  method='kde'))
+            map_values.append(bayesian_functions.map(dist,  method='kde'))
 
             # prob best
-            prob_best.append(bayesian_functions.prob_best(rvs))
+            prob_best.append(bayesian_functions.prob_best(dist))
 
         fig1,  fig2 =  plot_functions.plot_bayesian_metrics(
             num_experiments, hdi_lower, hdi_upper, rope_values, map_values, prob_best,
