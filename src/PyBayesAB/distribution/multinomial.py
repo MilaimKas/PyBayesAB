@@ -259,7 +259,66 @@ class MultinomMixin:
         ax.set_ylabel(y_label)
 
         return fig
-    
+
+    def plot_cum_posterior_dirichlet(self, group="A", N_sample=N_SAMPLE, level=95, figsize=None):
+        """
+        Plot cumulative posterior evolution for all categories as ribbons.
+        Each category gets a colored band showing its credible interval narrowing over experiments.
+
+        Args:
+            group (str): "A", "B", "AB", or "diff"
+            N_sample (int): Number of Dirichlet samples per experiment step.
+            level (int): Credible interval percentage (e.g. 95).
+            figsize (tuple, optional): Figure size.
+        """
+        fig, ax = plt.subplots(figsize=figsize)
+        tail = (100 - level) / 2
+
+        n_categories = len(self.prior)
+        cmap = plt.get_cmap("tab10")
+        colors = [cmap(i) for i in range(n_categories)]
+
+        def _plot_ribbons(ax, rvs_list, colors, linestyle="-", label_suffix=""):
+            experiments = np.arange(len(rvs_list))
+            for cat_idx in range(n_categories):
+                samples = [rvs[:, cat_idx] for rvs in rvs_list]
+                means = [np.mean(s) for s in samples]
+                ci_low = [np.percentile(s, tail) for s in samples]
+                ci_high = [np.percentile(s, 100 - tail) for s in samples]
+
+                ax.fill_between(experiments, ci_low, ci_high, alpha=0.2, color=colors[cat_idx])
+                ax.plot(experiments, means, color=colors[cat_idx], linestyle=linestyle,
+                        label=f"Category {cat_idx}{label_suffix}")
+
+        if group in ["A", "B"]:
+            rvs_list = self.make_cum_posterior_dirichlet(group=group, N_sample=N_sample)
+            _plot_ribbons(ax, rvs_list, colors)
+            ax.set_ylabel(f"Group {group} probability")
+
+        elif group == "AB":
+            self._check_missing_data()
+            rvs_A = self.make_cum_posterior_dirichlet(group="A", N_sample=N_sample)
+            rvs_B = self.make_cum_posterior_dirichlet(group="B", N_sample=N_sample)
+            _plot_ribbons(ax, rvs_A, colors, linestyle="-", label_suffix=" (A)")
+            _plot_ribbons(ax, rvs_B, colors, linestyle="--", label_suffix=" (B)")
+            ax.set_ylabel("Probability")
+
+        elif group == "diff":
+            self._check_missing_data()
+            rvs_A = self.make_cum_posterior_dirichlet(group="A", N_sample=N_sample)
+            rvs_B = self.make_cum_posterior_dirichlet(group="B", N_sample=N_sample)
+            rvs_list = [a - b for a, b in zip(rvs_A, rvs_B)]
+            _plot_ribbons(ax, rvs_list, colors)
+            ax.axhline(0, color='black', linestyle='--', linewidth=0.5)
+            ax.set_ylabel("Difference in probability (A - B)")
+
+        else:
+            raise ValueError("group must be 'A', 'B', 'AB', or 'diff'")
+
+        ax.set_xlabel("Experiments")
+        ax.legend()
+        return fig
+
 class BaysMultinomial(MultinomMixin, BayesianModel, PlotManager):
     def __init__(self, prior=None):
         BayesianModel.__init__(self)
