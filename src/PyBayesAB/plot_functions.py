@@ -482,7 +482,7 @@ def plot_bayesian_metrics(num_experiments, hdi_lower, hdi_upper, rope_values, ma
     _apply_dark_mode(fig2, ax2)
 
     # Plot ROPE probability
-    ax2.plot(num_experiments, rope_values, label='ROPE', linestyle='-', color=c_rope)
+    ax2.plot(num_experiments, rope_values, label='Probability within ROPE', linestyle='-', color=c_rope)
 
     # Plot probability of best
     ax2.plot(num_experiments, prob_best, label='Probability of A better than B', linestyle='-', color=c_prob)
