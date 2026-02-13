@@ -16,12 +16,16 @@ from PyBayesAB import helper
 # define global style
 plt.style.use(STYLE)
 
-# make rgba list of colors from cmap
-COL = helper.MplColorHelper(COLOR_MAP, 0, 1)
-COLORS = [COL.get_rgb(i) for i in np.linspace(0,1,4)]
+# vibrant base colors (teal, coral, gold, slate)
+COLORS = [
+    (0.15, 0.58, 0.67, 1.0),   # teal
+    (0.89, 0.35, 0.30, 1.0),   # coral
+    (0.93, 0.72, 0.20, 1.0),   # gold
+    (0.44, 0.44, 0.56, 1.0),   # slate
+]
 
-# list of cmaps
-CMAPS = [helper.create_colormap_from_rgba(c) for c in COLORS] 
+# sequential colormaps from each base color (white → color)
+CMAPS = [helper.create_colormap_from_rgba(c, darker_factor=1.2) for c in COLORS]
 
 def plot_data(data, label, xlabel="Experiments", ylabel="Values",
               figsize=FIGSIZE, plot_kwargs={"linewidth":LINEWIDTH, "marker":"o", "markersize":5}):
@@ -90,224 +94,230 @@ def plot_posterior(rvs, pdf=None, xlabel="Parameter", labels=None,
 
     return fig
 
-def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,  
+def plot_cumulative_posterior_1D(rvs_data, pdf_data=None, plt_cm=CMAPS,
                     xlabel="Parameter", bins=N_BINS, figsize=FIGSIZE, labels=None,
-                    sns_hist_kwargs={"alpha":0.5, "element":"step", "kde_kws":{'linewidth': LINEWIDTH}, "edgecolor":None},
-                    plot_kwargs={"linewidth":LINEWIDTH}, 
+                    fill_kwargs={"linewidth": 0},
+                    plot_kwargs={"linewidth": LINEWIDTH},
                     group_labels=None,
                     para_range=None):
-    
+
     fig, ax = plt.subplots(figsize=figsize)
     N_exp = len(rvs_data)
-    
+    N_groups = len(rvs_data[0])
+
     if labels is None:
         labels = np.arange(1, N_exp+1)
 
-    cmaps = [plt_cm[0](np.linspace(0.1, 1, N_exp)), 
-             plt_cm[1](np.linspace(0.1, 1, N_exp))]
+    cmaps = [plt_cm[min(j, len(plt_cm)-1)](np.linspace(0.15, 0.95, N_exp)) for j in range(N_groups)]
 
     if pdf_data:
         x, post_pdf = pdf_data
         for i in range(N_exp):
+            alpha = 0.08 + 0.55 * (i / max(N_exp - 1, 1))
             for j, (post_rvs, lab, pdf, xx) in enumerate(zip(rvs_data[i], group_labels, post_pdf[i], x)):
                 col = cmaps[j][i]
-                # plot rvs with large transparency 
-                sns.histplot(post_rvs, bins=bins, color=col, ax=ax, stat="density", **sns_hist_kwargs)
-                # plot pdf
-                ax.plot(xx, pdf, color=col, **plot_kwargs, label=lab)
-    
+                ax.fill_between(xx, pdf, alpha=alpha * 0.4, color=col, **fill_kwargs)
+                ax.plot(xx, pdf, color=col, alpha=alpha + 0.2, **plot_kwargs)
+
     else:
         for i in range(N_exp):
-            for cmp, post_rvs in zip(cmaps, rvs_data[i]):
-                # plot rvs with large transparency and kde 
-                sns.histplot(post_rvs, bins=bins, color=cmp[i], ax=ax, stat="density", **sns_hist_kwargs)
-                sns.kdeplot(post_rvs,  color=cmp[i], **plot_kwargs)
+            alpha = 0.08 + 0.55 * (i / max(N_exp - 1, 1))
+            for j, post_rvs in enumerate(rvs_data[i]):
+                col = cmaps[j][i]
+                try:
+                    kde = gaussian_kde(post_rvs)
+                    x_kde = np.linspace(post_rvs.min(), post_rvs.max(), 300)
+                    y_kde = kde(x_kde)
+                    ax.fill_between(x_kde, y_kde, alpha=alpha * 0.4, color=col, **fill_kwargs)
+                    ax.plot(x_kde, y_kde, color=col, alpha=alpha + 0.2, **plot_kwargs)
+                except Exception:
+                    pass
 
-    fig.colorbar(mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(0, 1), cmap=plt_cm[0]),
-             ax=ax, orientation='vertical', label="Experiments")
-    
+    # colorbar showing experiment progression
+    cbar_cmap = plt_cm[0]
+    sm = mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(1, N_exp), cmap=cbar_cmap)
+    cbar = fig.colorbar(sm, ax=ax, orientation='vertical', pad=0.02, aspect=30)
+    cbar.set_label("Experiment", fontsize=10)
+    cbar.ax.tick_params(labelsize=9)
+
     if para_range is not None:
         ax.set_xlim(para_range)
 
-    #plt.legend()
-    plt.xlabel(xlabel)
-    plt.ylabel("Probability density")
-    #plt.close()
-    
+    ax.set_xlabel(xlabel, fontsize=11)
+    ax.set_ylabel("Probability density", fontsize=11)
+    ax.tick_params(labelsize=9)
+    fig.tight_layout()
+
     return fig
 
 def plot_cumulative_posterior_2D_pdf(
-    pdf_data, 
-    figsize=FIGSIZE, 
-    cmaps=CMAPS, 
-    colors=COLORS, 
-    ylabel="Parameter", 
+    pdf_data,
+    figsize=FIGSIZE,
+    cmaps=CMAPS,
+    colors=COLORS,
+    ylabel="Parameter",
     group_labels=["A", "B"],
-    contour_kwargs={"levels":3, "alpha":1},
-    colormesh_kwargs={"alpha":0.7}, 
-    clabel_kwargs={"inline":True, "fontsize":8},
+    contour_kwargs={"levels": 5, "alpha": 0.85, "linewidths": 0.8},
+    colormesh_kwargs={"alpha": 0.75},
+    clabel_kwargs=None,
     para_range=None):
 
     fig, ax = plt.subplots(figsize=figsize)
-    plt.tight_layout()
 
     param_pts, post_pdf = pdf_data
 
     ngroups = len(post_pdf[0])
     nx = len(post_pdf)
-    x=np.arange(1, nx+1)
+    x = np.arange(1, nx + 1)
 
     pcolormesh_list = []
-    # loop over groups
     for i in range(ngroups):
         ny = len(param_pts[i])
-        X,Y =  np.meshgrid(x, param_pts[i])
-        data_to_plot = np.zeros((nx*ny,3))
-        # loop over experiment
+        X, Y = np.meshgrid(x, param_pts[i])
+        data_to_plot = np.zeros((nx * ny, 3))
         for j in range(nx):
-            data_to_plot[j*ny:(j+1)*ny,0] = np.ones(ny)*x[j] # x
-            data_to_plot[j*ny:(j+1)*ny,1] = param_pts[i] # y
-            data_to_plot[j*ny:(j+1)*ny,2] = post_pdf[j][i] # z
+            data_to_plot[j*ny:(j+1)*ny, 0] = np.ones(ny) * x[j]
+            data_to_plot[j*ny:(j+1)*ny, 1] = param_pts[i]
+            data_to_plot[j*ny:(j+1)*ny, 2] = post_pdf[j][i]
 
-        # create meshgrid
-        Z = griddata((data_to_plot[:,0], data_to_plot[:,1]), data_to_plot[:,2], (X,Y), method='nearest')
-        cp = ax.contour(X,Y,Z, colors=[colors[i]]*contour_kwargs["levels"], **contour_kwargs)
-        ax.clabel(cp, **clabel_kwargs)
-        c_map = cmaps[i]
-        pcm = plt.pcolormesh(X,Y,Z, cmap=c_map, shading='auto', zorder=2, **colormesh_kwargs)
-        pcolormesh_list.append(pcm)  # Store pcolormesh for colorbars
+        Z = griddata((data_to_plot[:, 0], data_to_plot[:, 1]), data_to_plot[:, 2], (X, Y), method='nearest')
+        c_map = cmaps[min(i, len(cmaps)-1)]
+        pcm = ax.pcolormesh(X, Y, Z, cmap=c_map, shading='auto', zorder=2, **colormesh_kwargs)
+        cp = ax.contour(X, Y, Z, colors=[colors[min(i, len(colors)-1)]] * contour_kwargs["levels"],
+                   **contour_kwargs)
+        if clabel_kwargs is not None:
+            ax.clabel(cp, **clabel_kwargs)
+        pcolormesh_list.append(pcm)
 
-    # Add individual colorbars for each pcolormesh
     for i, pcm in enumerate(pcolormesh_list):
-        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i]} Probability Density", orientation="vertical", pad=0.01)
+        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i]}", orientation="vertical",
+                            pad=0.02, aspect=30, shrink=0.85)
         cbar.ax.tick_params(labelsize=8)
 
-    # find optimal y range given the posterior pdf
     if para_range is None:
         para_range = helper.get_optimal_xrange(post_pdf[1], param_pts)
     ax.set_ylim(para_range)
 
-    plt.xticks(ticks=x, labels=[int(xx) for xx in x])
-    plt.xlabel("Experiments")
-    plt.ylabel(ylabel)
-    #plt.close()
-    #plt.legend()
+    ax.set_xticks(x)
+    ax.set_xticklabels([int(xx) for xx in x], fontsize=9)
+    ax.set_xlabel("Experiments", fontsize=11)
+    ax.set_ylabel(ylabel, fontsize=11)
+    ax.tick_params(labelsize=9)
+    fig.tight_layout()
 
     return fig
 
-def plot_cumulative_posterior_3D(rvs_data, pdf_data=None,  
-                    xlabel="Parameter", bins=30, figsize=(10, 7), labels=None,
+def plot_cumulative_posterior_3D(rvs_data, pdf_data=None,
+                    xlabel="Parameter", figsize=(11, 7), labels=None,
                     plt_cm=CMAPS,
-                    plt_bar_kwargs={"alpha":0.5},
-                    plot_kwargs={"linewidth":1}, 
-                    group_labels=None, 
+                    fill_kwargs={"linewidth": 0.6},
+                    plot_kwargs={"linewidth": 1.5},
+                    group_labels=None,
                     para_range=None,
-                    scaled_space=4, view=(40, -50)):
-    
+                    n_kde_pts=200,
+                    scaled_space=4, view=(30, -55)):
+
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
     fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(projection='3d')   
+    ax = fig.add_subplot(projection='3d')
     ax.grid(False)
-     
+
     N_exp = len(rvs_data)
     N_groups = len(rvs_data[0])
 
     if labels is None:
-        labels = [str(i) for i in np.arange(1, N_exp+1)]
-    
+        labels = [str(i) for i in np.arange(1, N_exp + 1)]
+
     if group_labels is None:
         group_labels = [f"group_{i}" for i in range(N_groups)]
 
-    # Generate colormap for different experiments
-    if isinstance(plt_cm, list) and len(plt_cm) >= 2:
-        cmaps = [plt_cm[0](np.linspace(0.1, 1, N_exp)), 
-                 plt_cm[1](np.linspace(0.1, 1, N_exp))]
-    else:
-        cmaps = [plt_cm(np.linspace(0.1, 1, N_exp))]  # Single colormap
+    cmaps = [plt_cm[min(j, len(plt_cm)-1)](np.linspace(0.2, 0.95, N_exp)) for j in range(N_groups)]
 
     if pdf_data:
         x, post_pdf = pdf_data
         for i in range(N_exp):
+            alpha_fill = 0.15 + 0.45 * (i / max(N_exp - 1, 1))
             for j, (post_rvs, lab, pdf, xx) in enumerate(zip(rvs_data[i], group_labels, post_pdf[i], x)):
                 col = cmaps[j][i]
-                
-                # Compute histogram
-                hist, edges = np.histogram(post_rvs, bins=bins, density=True)
-                bar_pos = [(a+edges[i+1])/2.0 for i,a in enumerate(edges[0:-1])]
-                w = abs(bar_pos[1]) - abs(bar_pos[0])
-                
-                # Bar plot
-                ax.bar(bar_pos, hist, zs=i, zdir='x', align='center', width=w, color=col, **plt_bar_kwargs)
-                
-                # PDF plot
-                ax.plot(xx, pdf, zs=i, zdir='x', color=cmaps[j][-1], **plot_kwargs, label=lab)
+                verts = [(xx[0], 0)] + list(zip(xx, pdf)) + [(xx[-1], 0)]
+                poly = Poly3DCollection([[(i, v[0], v[1]) for v in verts]],
+                                         alpha=alpha_fill, facecolor=col, edgecolor=(*col[:3], 0.7),
+                                         **fill_kwargs)
+                ax.add_collection3d(poly)
+                ax.plot(xx, pdf, zs=i, zdir='x', color=cmaps[j][-1], **plot_kwargs)
 
     else:
+        all_samples = [s for exp in rvs_data for s in exp]
+        if para_range is not None:
+            x_min, x_max = para_range
+        else:
+            x_min = min(s.min() for s in all_samples)
+            x_max = max(s.max() for s in all_samples)
+        x_kde = np.linspace(x_min, x_max, n_kde_pts)
+
         for i in range(N_exp):
+            alpha_fill = 0.15 + 0.45 * (i / max(N_exp - 1, 1))
             for j, (post_rvs, lab) in enumerate(zip(rvs_data[i], group_labels)):
                 col = cmaps[j][i]
+                try:
+                    kde = gaussian_kde(post_rvs)
+                    y_kde = kde(x_kde)
+                    verts = [(x_kde[0], 0)] + list(zip(x_kde, y_kde)) + [(x_kde[-1], 0)]
+                    poly = Poly3DCollection([[(i, v[0], v[1]) for v in verts]],
+                                             alpha=alpha_fill, facecolor=col,
+                                             edgecolor=(*col[:3], 0.7), **fill_kwargs)
+                    ax.add_collection3d(poly)
+                    ax.plot(x_kde, y_kde, zs=i, zdir='x', color=cmaps[j][-1], **plot_kwargs)
+                except Exception:
+                    pass
 
-                # Compute histogram
-                hist, edges = np.histogram(post_rvs, bins=bins, density=True)
-                bar_pos = [(a+edges[i+1])/2.0 for i,a in enumerate(edges[0:-1])]
-                w = abs(bar_pos[1]) - abs(bar_pos[0])
-
-                # Corrected: Bar positioning
-                ax.bar(bar_pos, hist, zs=i, zdir='x', align='center', width=w, color=col, **plt_bar_kwargs)
-
-                # add gaussian kde plot
-                pdf = gaussian_kde(post_rvs).pdf(bar_pos)
-                ax.plot(bar_pos, pdf, zs=i, zdir='x', color=cmaps[j][-1], **plot_kwargs, label=lab)
-
-    # add exp labels
+    # only show a subset of tick labels to avoid clutter
     ax.set_xticks(np.arange(N_exp))
-    ax.set_xticklabels(labels)
+    if N_exp > 10:
+        sparse_labels = [labels[i] if i % max(1, N_exp // 6) == 0 else "" for i in range(N_exp)]
+        ax.set_xticklabels(sparse_labels, fontsize=8)
+    else:
+        ax.set_xticklabels(labels, fontsize=8)
 
-    ax.set_xlabel("Experiments")
-    ax.set_ylabel(xlabel)
+    ax.set_xlabel("Experiments", fontsize=10, labelpad=10)
+    ax.set_ylabel(xlabel, fontsize=10, labelpad=10)
 
-    # set y range 
     if para_range is not None:
         ax.set_ylim(para_range)
 
-    # hide z axis and xy plane
+    # clean up 3D chrome
     ax.zaxis.set_label_position('none')
-    ax.zaxis.set_ticks_position('none')    
-    ax.xaxis.pane.set_visible(False)  # Hides the Z-axis background
+    ax.zaxis.set_ticks([])
+    ax.xaxis.pane.set_visible(False)
     ax.yaxis.pane.set_visible(False)
+    ax.zaxis.pane.set_visible(False)
+    ax.xaxis.pane.set_edgecolor('none')
+    ax.yaxis.pane.set_edgecolor('none')
 
-    #ax.legend()
+    ax.view_init(*view)
+    ax.set_box_aspect(aspect=(scaled_space, scaled_space / 2, 1))
+    fig.subplots_adjust(left=0.02, right=0.95, bottom=0.05, top=0.95)
 
-    # stretch x axis
-    ax.view_init(*view)  # Prevents cut-off issues
-    ax.set_box_aspect(aspect=(scaled_space, scaled_space/2, 1))
-
-    #plt.close()
     return fig
 
 
 def plot_cumulative_posterior_2D_rvs(
-    rvs_data, 
-    exp_label=None, 
-    bins=20, 
-    ylabel="Parameter", 
+    rvs_data,
+    exp_label=None,
+    bins=30,
+    ylabel="Parameter",
     group_labels=["A", "B"],
     figsize=FIGSIZE,
-    cmaps=CMAPS, 
-    colors=COLORS, 
-    contour_kwargs={"levels": 3, "alpha": 1},
-    colormesh_kwargs={"alpha": 0.7}, 
-    clabel_kwargs={"inline": True, "fontsize": 8},
+    cmaps=CMAPS,
+    colors=COLORS,
+    contour_kwargs={"levels": 5, "alpha": 0.85, "linewidths": 0.8},
+    colormesh_kwargs={"alpha": 0.75},
+    clabel_kwargs=None,
     para_range=None
 ):
     """
     Plot a 2D colormesh using samples of posteriors for successive experiments.
-
-    Args:
-        rvs_data (list of np.array): List of arrays, each containing random samples for one "experiment."
-        exp_label (list or np.array, optional): List of experiment indices or labels (x-axis).
-        bins (int or array-like): Number of bins or specific bin edges for the histograms.
-        ylabel (str, optional): Label for the y-axis (parameters). Defaults to "Parameter".
-        param_range (list, optional): Range for the y-axis. If None, it will be determined from the data.
     """
 
     fig, ax = plt.subplots(figsize=figsize)
@@ -315,14 +325,11 @@ def plot_cumulative_posterior_2D_rvs(
     nx = len(rvs_data)
     ngroups = len(rvs_data[0])
 
-    # Set up x-axis labels
     if exp_label is None:
         exp_label = np.arange(1, nx + 1)
 
-    # Compute histograms for each experiment
     bin_edges = None
     bin_centers = None
-    Z_list = []  # List to store Z data for each group
 
     for i in range(ngroups):
         histograms = []
@@ -330,36 +337,32 @@ def plot_cumulative_posterior_2D_rvs(
             hist, edges = np.histogram(rvs_data[j][i], bins=bins, density=True)
             histograms.append(hist)
             if bin_edges is None:
-                bin_edges = edges  # Use the bin edges from the first histogram
-                bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])  # Midpoints of bins
+                bin_edges = edges
+                bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
 
-        # Stack histograms into a 2D array for plotting
-        Z = np.array(histograms).T  # Shape: (len(bin_centers), nx)
-        Z_list.append(Z)
-
-        # Prepare the grid for experiments (x-axis) and parameter bins (y-axis)
+        Z = np.array(histograms).T
         X, Y = np.meshgrid(exp_label, bin_centers)
 
-        # Colormesh plot
-        pcm = ax.pcolormesh(X, Y, Z, shading='auto', cmap=cmaps[i], **colormesh_kwargs)
+        c_map = cmaps[min(i, len(cmaps)-1)]
+        pcm = ax.pcolormesh(X, Y, Z, shading='auto', cmap=c_map, **colormesh_kwargs)
+        cp = ax.contour(X, Y, Z, colors=[colors[min(i, len(colors)-1)]] * contour_kwargs["levels"],
+                   zorder=2, **contour_kwargs)
+        if clabel_kwargs is not None:
+            ax.clabel(cp, **clabel_kwargs)
 
-        # Add colorbar
-        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i]} Probability Density", orientation="vertical", pad=0.01)
+        cbar = fig.colorbar(pcm, ax=ax, label=f"Group {group_labels[i]}",
+                            orientation="vertical", pad=0.02, aspect=30, shrink=0.85)
+        cbar.ax.tick_params(labelsize=8)
 
-        # Add contour plot
-        cp = ax.contour(X, Y, Z, colors=[colors[i]]*contour_kwargs["levels"], zorder=2, **contour_kwargs)
-        ax.clabel(cp, **clabel_kwargs)
-
-    # make  sure y is optimal
     if para_range is None:
         para_range = [bin_centers.min(), bin_centers.max()]
     ax.set_ylim(para_range)
 
-    # Add labels and title
     ax.set_xticks(exp_label)
-    ax.set_xlabel("Experiments")
-    ax.set_ylabel(ylabel)
-    #plt.close()
+    ax.set_xlabel("Experiments", fontsize=11)
+    ax.set_ylabel(ylabel, fontsize=11)
+    ax.tick_params(labelsize=9)
+    fig.tight_layout()
 
     return fig
 
