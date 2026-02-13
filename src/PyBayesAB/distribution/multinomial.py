@@ -174,14 +174,6 @@ class MultinomMixin:
             cum_alpha += data[i]
             alphas[i + 1] = cum_alpha
         return alphas
-    
-        data = self.return_data(group)
-        alpha_cum = self.prior
-        alphas = [alpha_cum]    
-        for d in data:
-            alpha_cum += d
-            alphas.append(alpha_cum)
-        return np.array(alphas)
 
     def make_cum_posterior(self, category_idx=0, group="A", N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS):
         """
@@ -352,10 +344,23 @@ class MultinomialMarginalComponent(BayesianModel):
     Marginal component for a specific category of the multinomial distribution.
     This class allows for the calculation of the marginal posterior distribution for a specific category.
     It inherits from BayesianModel and uses the parent model to access the data and parameters.
+    Supports composition via operators: multi[0] * gauss1 + multi[1] * gauss2
     """
     def __init__(self, parent_model, category_idx):
         self.parent = parent_model
         self.category_idx = category_idx
+        self._initialize_cache()
+
+    @property
+    def dataA(self):
+        return self.parent.dataA
+
+    @property
+    def dataB(self):
+        return self.parent.dataB
+
+    def return_data(self, group):
+        return self.parent.return_data(group)
 
     def make_rvs_diff(self, N_sample=N_SAMPLE):
         return self.parent.make_rvs(group="A", category_idx=self.category_idx, N_sample=N_sample) - \
@@ -366,6 +371,12 @@ class MultinomialMarginalComponent(BayesianModel):
 
     def make_pdf(self, group="A", **kwargs):
         return self.parent.make_pdf(group=group, category_idx=self.category_idx, **kwargs)
+
+    def make_cum_posterior(self, group="A", N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS, **kwargs):
+        return self.parent.make_cum_posterior(
+            category_idx=self.category_idx, group=group,
+            N_sample=N_sample, para_range=para_range, N_pts=N_pts
+        )
 
 
 
