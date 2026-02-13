@@ -163,6 +163,18 @@ class MultinomMixin:
         
     def make_cum_post_para(self, group="A"):
         data = self.return_data(group)
+        if not data or len(data) == 0:
+            raise ValueError(f"No data available for group '{group}' to calculate cumulative posterior parameters.")
+        # cumulative alpha vector
+        cum_alpha = self.prior.copy()
+        alphas = np.zeros((len(data) + 1, cum_alpha.shape[0]))
+        alphas[0] = cum_alpha
+        for i in range(len(data)):
+            cum_alpha += data[i]
+            alphas[i + 1] = cum_alpha
+        return alphas
+    
+        data = self.return_data(group)
         alpha_cum = self.prior
         alphas = [alpha_cum]    
         for d in data:
@@ -252,9 +264,26 @@ class BaysMultinomial(MultinomMixin, BayesianModel, PlotManager):
     def __init__(self, prior=None):
         BayesianModel.__init__(self)
         MultinomMixin.__init__(self, prior=prior)
-    
+        self._initialize_cache()
+
     def __getitem__(self, idx):
         return MultinomialMarginalComponent(self, idx)
+
+    def plot_cum_posterior(self, category_idx=0, group="A", type="2D",
+                           N_sample=N_SAMPLE, para_range=None, N_pts=N_PTS):
+        """
+        Plot cumulative posterior for a specific category's marginal Beta distribution.
+
+        Args:
+            category_idx (int): Which category to plot. Defaults to 0.
+            group (str): "A", "B", "AB", or "diff"
+            type (str): "1D", "2D", or "3D"
+        """
+        return super().plot_cum_posterior(
+            group=group, type=type, N_sample=N_sample,
+            para_range=para_range, N_pts=N_pts,
+            category_idx=category_idx
+        )
 
 class MultinomialMarginalComponent(BayesianModel):
     """
