@@ -134,3 +134,62 @@ def map(rvs, method="median"):
         raise ValueError("Invalid method. Choose 'median' or 'kde'.")
 
     return map_estimate
+
+def lost_based_decision(
+    posterior_samples: np.ndarray,
+    loss_weight_w: float = 2.5,
+    null_value_s: float = 0.0,
+    verbose: bool = True
+):
+    """
+    Decide whether to launch based on posterior samples and loss-based decision rule.
+
+    Parameters
+    ----------
+    posterior_samples : np.ndarray
+        Samples from the posterior distribution of the treatment effect.
+    loss_weight_w : float
+        Relative cost of being wrong when launching (w > 1 means launching is more risky).
+    null_value_s : float
+        The status quo effect size (typically 0).
+    verbose : bool
+        If True, prints summary of expected losses and decision.
+
+    Returns
+    -------
+    decision : str
+        'launch' or 'hold'
+    decision_details : dict
+        Dictionary with expected losses and posterior summary.
+    """
+
+    t_samples = posterior_samples
+    t_mean = np.mean(t_samples)
+    t_var = np.var(t_samples)
+
+    # Expected loss if we do nothing
+    expected_loss_hold = np.mean((t_samples - null_value_s) ** 2)
+
+    # Expected loss if we launch based on posterior mean
+    expected_loss_launch = loss_weight_w * np.mean((t_samples - t_mean) ** 2)
+
+    decision = "launch" if expected_loss_launch < expected_loss_hold else "hold"
+
+    details = {
+        "decision": decision,
+        "posterior_mean": t_mean,
+        "posterior_std": np.std(t_samples),
+        "expected_loss_hold": expected_loss_hold,
+        "expected_loss_launch": expected_loss_launch,
+        "loss_weight_w": loss_weight_w,
+        "bias_squared": (t_mean - null_value_s)**2,
+        "variance": t_var,
+    }
+
+    if verbose:
+        print(f"Posterior mean = {t_mean:.4f}, std = {np.sqrt(t_var):.4f}")
+        print(f"Expected loss (hold)   = {expected_loss_hold:.4f}")
+        print(f"Expected loss (launch) = {expected_loss_launch:.4f} [w = {loss_weight_w}]")
+        print(f"=> Decision: {decision.upper()}")
+
+    return decision, details
