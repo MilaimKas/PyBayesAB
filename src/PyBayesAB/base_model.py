@@ -236,6 +236,12 @@ class BayesianModel(ABC):
                 The Bayes factor is {BF:.2f}, thus providing {text}
                 """
     
+    def loss_based_decision(self, loss_weight=2.5, null_value=0, post_kwargs={}, verbose=True):
+        rvs = self.make_rvs_diff(**post_kwargs)
+        return  bayesian_functions.lost_based_decision(rvs, 
+                                                    loss_weight_w=loss_weight, null_value_s=null_value, 
+                                                    verbose=verbose)
+    
     def summary_result(self, rope_interval, level=95, post_kwargs={}):
         """
         Generate a summary of the Bayesian metrics.
