@@ -128,6 +128,14 @@ fig1, fig2 = composite_model.plot_bayesian_metrics(rope_interval=[-2, 2])
 
 Important remarks: when using composite models, the posterior is calculated as a product of the posteriors of the individual models. This means that the models should be independent and not correlated. In the example above the models assumes that the purchase probability is independent of the amount of money spent.
 
+A loss-based decision function is also implemented. It takes a weigth as input, that represents how much it is being wrong when launching, compare to missing a potentially good treatment.
+
+```python
+# example: being wrong when rolling out the change is 2x worse than missing a potentially positive improvement. 
+composite_model.loss_based_decision(loss_weight=2.)
+```
+
+
 ## Code structure
 The code is structured in a way that allows for easy extension and addition of new models. Each model is implemented as a class that inherits from the `BaysModel` class and the `PlotManager` class. The `BaysModel` class provides the basic functionality for adding data, calculating posterior, and visualizing the results. The `PlotManager` class provides the functionality for plotting the posterior and cumulative posterior. The models are implemented in separate files in the `src/PyBayesAB/distribution` directory where the `template.py` module can be used as basis.
 
