@@ -1,3 +1,9 @@
+## **Disclaimer: on AI usage**
+
+This project has been developped with very limited use of AI tools. Some code snippets and documentation parts have been generated using AI tools (mainly ChatGPT 4), but the overall design, implementation and testing have been done by myself.
+
+![AI Usage](https://img.shields.io/badge/👤_█░░░░░░░░░_🤖-10%25_AI-e879f9?style=flat-square)
+
 # Bayesian AB test package
 
 ## About
@@ -144,7 +150,3 @@ The code is structured in a way that allows for easy extension and addition of n
 - add pareto distribution
 - add decision making based on Bayes factor
 - add possibility to use custom priors from normal distribution
-
-## Disclaimer: on AI usage
-
-This project has been developped with very limited use of AI tools. Some code snippets and documentation parts have been generated using AI tools (mainly ChatGPT 4), but the overall design, implementation and testing have been done by myself.
